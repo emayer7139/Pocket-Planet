@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#E8F5E9">
+  <title>Pocket Planet Merge</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Menu Screen ──────────────────────────────────────────────── -->
+    <div id="menu-screen" class="screen active">
+      <div class="title-planet">🌍</div>
+      <h1 class="game-title">
+        Pocket Planet<br>Merge
+        <span>Grow tiny worlds, one merge at a time</span>
+      </h1>
+      <div class="stardust-display" id="menu-stardust">0 Stardust</div>
+      <button class="btn btn-primary" id="btn-play">Play</button>
+      <button class="btn btn-secondary" id="btn-collection">Collection</button>
+    </div>
+
+    <!-- ── Level Select Screen ──────────────────────────────────────── -->
+    <div id="levels-screen" class="screen">
+      <div class="levels-header">
+        <button class="back-btn" id="levels-back">&larr;</button>
+        <h2>Select Level</h2>
+        <div style="width:36px"></div>
+      </div>
+      <div class="levels-grid" id="levels-list">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ── Gameplay Screen ──────────────────────────────────────────── -->
+    <div id="game-screen" class="screen">
+      <!-- HUD Top -->
+      <div class="hud-top">
+        <div class="hud-left">
+          <button class="hud-btn" id="pause-btn" title="Back to levels">&#x2190;</button>
+          <button class="hud-btn" id="sound-btn" title="Toggle sound">&#x1F50A;</button>
+        </div>
+        <div></div>
+      </div>
+
+      <!-- Score -->
+      <div class="score-display">
+        <div class="score-current" id="score-current">0</div>
+        <div class="score-target" id="score-target">Target: 0</div>
+        <div class="score-bar">
+          <div class="score-bar-fill" id="score-bar-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Bonus Goals -->
+      <div class="bonus-goals" id="bonus-goals"></div>
+
+      <!-- Grid -->
+      <div class="grid-wrapper">
+        <div class="grid-planet"></div>
+        <div class="grid size-5" id="game-grid">
+          <!-- Cells populated by JS -->
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="queue-area" id="queue-display">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Undo -->
+      <div class="undo-area">
+        <button class="undo-btn" id="undo-btn" disabled title="Undo last move">
+          &#x21A9;
+          <span class="undo-badge" id="undo-count">1</span>
+        </button>
+      </div>
+
+      <!-- Tutorial Banner -->
+      <div class="tutorial-banner" id="tutorial-banner" style="display:none"></div>
+    </div>
+
+    <!-- ── Result Screen ────────────────────────────────────────────── -->
+    <div id="result-screen" class="screen">
+      <div class="result-icon" id="result-icon">🌍</div>
+      <h2 class="result-title" id="result-title">Planet Complete!</h2>
+
+      <div class="result-score" id="result-score-rows">
+        <!-- Rows populated by JS -->
+      </div>
+
+      <div class="bonus-results" id="result-bonus">
+        <!-- Bonus goal results populated by JS -->
+      </div>
+
+      <div class="result-stardust" id="result-stardust">+0 Stardust</div>
+
+      <div class="result-discoveries" id="result-discoveries">
+        <!-- Discovery badges populated by JS -->
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="result-next-btn">Next Level &#x25B6;</button>
+        <button class="btn btn-secondary" id="result-retry-btn">Retry &#x1F504;</button>
+      </div>
+      <button class="btn btn-secondary" id="result-map-btn" style="margin-top:4px">World Map</button>
+    </div>
+
+    <!-- ── Collection Screen ────────────────────────────────────────── -->
+    <div id="collection-screen" class="screen">
+      <div class="levels-header">
+        <button class="back-btn" id="collection-back">&larr;</button>
+        <h2>Collection</h2>
+        <div style="width:36px"></div>
+      </div>
+
+      <div class="collection-tabs">
+        <button class="collection-tab active" data-tab="tiles">Tiles</button>
+        <button class="collection-tab" data-tab="animals">Animals</button>
+        <button class="collection-tab" data-tab="landmarks">Landmarks</button>
+      </div>
+
+      <div class="collection-progress" id="collection-progress">0 / 0 discovered</div>
+
+      <div class="collection-grid" id="collection-grid">
+        <!-- Items populated by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
