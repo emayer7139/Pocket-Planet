@@ -1,11 +1,14 @@
 // ── Game State Manager ───────────────────────────────────────────────────────
-// Orchestrates all game systems: grid, queue, merge engine, scoring, levels.
+// Orchestrates all game systems: grid, queue, scoring, levels, and events.
 
 import { Grid } from './grid.js';
-import { MergeEngine } from './mergeEngine.js';
 import { TileQueue } from './tileQueue.js';
 import { TILES, LEVELS, BIOMES, ANIMALS, LANDMARKS } from './tiles.js';
 import { AudioManager } from './audio.js';
+
+function createEmptyCollection() {
+  return { tiles: {}, animals: {}, landmarks: {} };
+}
 
 export class GameState {
   constructor() {
@@ -13,9 +16,9 @@ export class GameState {
     this.currentLevel = 1;
     this.grid = null;
     this.queue = null;
-    this.mergeEngine = null;
     this.score = 0;
     this.mergeBonus = 0;
+    this.comboBonus = 0;
     this.targetScore = 0;
     this.state = 'menu'; // menu | playing | won | lost | tutorial
     this.undoStack = [];
@@ -25,20 +28,30 @@ export class GameState {
     this.totalMerges = 0;
     this.chainMerges = 0;
     this.longestChain = 0;
+    this.comboStreak = 0;
+    this.comboMultiplier = 1;
+    this.bestComboMultiplier = 1;
     this.animalsSpawned = [];
     this.landmarksBuilt = [];
     this.tilesCreated = {};
     this.animalTypesSpawned = new Set();
-    this.events = []; // pending animation events
+    this.events = [];
     this.processing = false;
     this.stardust = 0;
     this.totalStardust = 0;
     this.levelsCompleted = {};
-    this.collection = { tiles: {}, animals: {}, landmarks: {} };
+    this.collection = createEmptyCollection();
     this.tutorialStep = -1; // -1 = not in tutorial
+    this.levelDef = null;
+
+    // New mechanics: combo scaling + wild charge meter + queue reroll ability.
+    this.wildCharge = 1;
+    this.maxWildCharge = 3;
+    this.wildEnergy = 0;
+    this.wildEnergyTarget = 160;
+
     this.onStateChange = null; // UI callback
     this.onEvent = null; // animation callback
-    this.levelDef = null;
 
     this._loadSave();
   }
@@ -47,13 +60,14 @@ export class GameState {
 
   startLevel(levelId) {
     this.levelDef = LEVELS.find(l => l.id === levelId);
-    if (!this.levelDef) return;
+    if (!this.levelDef) return false;
 
     this.currentLevel = levelId;
     this.grid = new Grid(this.levelDef.gridSize);
-    this.queue = new TileQueue(this.levelDef.biome, 2);
+    this.queue = new TileQueue(this.levelDef.biome, 3);
     this.score = 0;
     this.mergeBonus = 0;
+    this.comboBonus = 0;
     this.targetScore = this.levelDef.target;
     this.state = 'playing';
     this.undosRemaining = this.maxUndos;
@@ -62,22 +76,32 @@ export class GameState {
     this.totalMerges = 0;
     this.chainMerges = 0;
     this.longestChain = 0;
+    this.comboStreak = 0;
+    this.comboMultiplier = 1;
+    this.bestComboMultiplier = 1;
     this.animalsSpawned = [];
     this.landmarksBuilt = [];
     this.tilesCreated = {};
     this.animalTypesSpawned = new Set();
     this.events = [];
     this.processing = false;
+    this.wildCharge = 1;
+    this.maxWildCharge = 3;
+    this.wildEnergy = 0;
+    this.wildEnergyTarget = 160;
 
-    // Tutorial on level 1
+    // Tutorial on level 1 (first clear).
     if (levelId === 1 && !this.levelsCompleted[1]) {
       this.state = 'tutorial';
       this.tutorialStep = 0;
-      // Force tutorial queue
-      this.queue.setQueue(['earth_1', 'earth_1']);
+      this.wildCharge = 0;
+      this.queue.setQueue(['earth_1', 'earth_1', 'earth_1']);
+    } else {
+      this.tutorialStep = -1;
     }
 
     this._notify('levelStart');
+    return true;
   }
 
   // ── Core Gameplay ────────────────────────────────────────────────────────
@@ -89,40 +113,40 @@ export class GameState {
     const tile = this.queue.peek();
     if (!tile) return false;
 
-    // Save state for undo
+    // Save state for undo.
     this._saveUndoState();
 
-    // Place the tile
+    // Place the tile.
     const success = this.grid.place(row, col, tile);
     if (!success) {
-      this.undoStack.pop(); // revert undo save
+      this.undoStack.pop();
       return false;
+    }
+
+    if (!tile.isAnimal && !tile.isLandmark && tile.id !== 'wild') {
+      this._discoverTile(tile.id);
     }
 
     this.processing = true;
     this.turnCount++;
 
-    // Draw next tile from queue
+    // Draw next tile from queue.
     this.queue.draw();
 
-    // Sound
     this.audio.playPlace();
-
-    // Emit place event
     this._emitEvent({ type: 'place', row, col, tile: { ...tile } });
 
-    // Process merges
+    // Process merges.
     const mergeEvents = await this._processMerges(row, col);
 
-    // Update score
+    // Update per-turn systems.
+    this._updateComboState(mergeEvents.length > 0);
     this._recalculateScore();
-
-    // Check win/loss
     this._checkEndCondition();
 
     this.processing = false;
 
-    // Handle tutorial progression
+    // Handle tutorial progression.
     if (this.state === 'tutorial') {
       this._advanceTutorial(mergeEvents);
     }
@@ -148,130 +172,142 @@ export class GameState {
     const group = this.grid.findMergeGroup(row, col);
     if (group.length < 3) return;
 
-    // Determine next tier
+    // Determine next tier.
     const baseTile = group.find(g => g.tile.id !== 'wild')?.tile || tile;
     const nextTileId = `${baseTile.chain}_${baseTile.tier + 1}`;
     const nextTileDef = TILES[nextTileId];
     if (!nextTileDef) return;
 
-    // Calculate merge bonus
-    let bonus = 20;
-    if (group.length === 4) bonus = 50;
-    if (group.length >= 5) bonus = 100;
-    if (chainStep > 0) bonus += chainStep <= 1 ? 40 : chainStep <= 2 ? 80 : 150;
+    // Calculate base merge bonus.
+    let baseBonus = 20;
+    if (group.length === 4) baseBonus = 50;
+    if (group.length >= 5) baseBonus = 100;
+    if (chainStep > 0) baseBonus += chainStep <= 1 ? 40 : chainStep <= 2 ? 80 : 150;
 
-    this.mergeBonus += bonus;
+    // Apply combo multiplier.
+    const comboMultiplier = this.comboMultiplier;
+    const scaledBonus = Math.round(baseBonus * comboMultiplier);
+    const comboExtra = scaledBonus - baseBonus;
+
+    this.mergeBonus += scaledBonus;
+    this.comboBonus += Math.max(0, comboExtra);
     this.totalMerges++;
     if (chainStep > 0) this.chainMerges++;
     this.longestChain = Math.max(this.longestChain, chainStep + 1);
 
-    // Track tile creation
+    // Track tile creation.
     this.tilesCreated[nextTileId] = (this.tilesCreated[nextTileId] || 0) + 1;
     this._discoverTile(nextTileId);
 
-    // Merge event for animations
+    // Merge event for animations.
     const mergeEvent = {
       type: 'merge',
       fromCells: group.map(g => ({ row: g.row, col: g.col, tile: { ...g.tile } })),
       toRow: row,
       toCol: col,
       resultTile: { ...nextTileDef },
-      bonus,
+      bonus: scaledBonus,
+      baseBonus,
+      comboBonus: comboExtra,
+      comboMultiplier,
       chainStep,
       groupSize: group.length,
     };
     allEvents.push(mergeEvent);
     this._emitEvent(mergeEvent);
 
-    // Sound
     this.audio.playMerge(nextTileDef.tier, chainStep);
 
-    // Remove group tiles
+    // Remove group tiles.
     for (const g of group) {
       this.grid.remove(g.row, g.col);
     }
 
-    // Place result
+    // Place merge result.
     this.grid.place(row, col, nextTileDef);
+    this._gainWildEnergy(group.length, chainStep);
 
-    // Life burst
+    // Life burst.
     if (nextTileDef.lifeBurst) {
       this._processLifeBurst(row, col, nextTileDef);
     }
 
-    // Chain: check if the new tile can merge again
+    // Check chain.
     await this._chainMerge(row, col, allEvents, chainStep + 1);
   }
 
-  _processLifeBurst(row, col, tileDef) {
-    const lb = tileDef.lifeBurst;
-    if (!lb || Math.random() > lb.chance) return;
+  _gainWildEnergy(groupSize, chainStep) {
+    if (!this.queue) return;
 
-    const spawnCount = lb.count || 1;
-    for (let i = 0; i < spawnCount; i++) {
-      let spawnType, spawnDef;
+    const gained = 8 + groupSize * 12 + chainStep * 10;
+    this.wildEnergy += gained;
 
-      if (i === 0 && lb.animals && lb.animals.length > 0) {
-        spawnType = 'animal';
-        const animalId = lb.animals[Math.floor(Math.random() * lb.animals.length)];
-        spawnDef = ANIMALS[animalId];
-      } else if (lb.landmarks && lb.landmarks.length > 0) {
-        spawnType = 'landmark';
-        const lmId = lb.landmarks[Math.floor(Math.random() * lb.landmarks.length)];
-        spawnDef = LANDMARKS[lmId];
-      } else if (lb.animals && lb.animals.length > 0) {
-        spawnType = 'animal';
-        const animalId = lb.animals[Math.floor(Math.random() * lb.animals.length)];
-        spawnDef = ANIMALS[animalId];
+    let grants = 0;
+    while (this.wildEnergy >= this.wildEnergyTarget) {
+      this.wildEnergy -= this.wildEnergyTarget;
+      grants++;
+
+      if (this.wildCharge < this.maxWildCharge) {
+        this.wildCharge++;
       }
 
-      if (!spawnDef) continue;
-
-      // Find spawn position
-      const emptyAdj = this.grid.findEmptyAdjacent(row, col);
-      let spawnPos = emptyAdj.length > 0
-        ? emptyAdj[Math.floor(Math.random() * emptyAdj.length)]
-        : this.grid.findNearestEmpty(row, col);
-
-      const entityTile = {
-        id: `${spawnType}_${spawnDef.id}`,
-        name: spawnDef.name,
-        emoji: spawnDef.emoji,
-        points: spawnDef.points,
-        chain: 'entity',
-        tier: 0,
-        isAnimal: spawnType === 'animal',
-        isLandmark: spawnType === 'landmark',
-        entityId: spawnDef.id,
-        rarity: spawnDef.rarity || 'common',
-        color: spawnType === 'animal' ? '#FFB74D' : '#CE93D8',
-      };
-
-      if (spawnPos) {
-        this.grid.place(spawnPos.row, spawnPos.col, entityTile);
-
-        if (spawnType === 'animal') {
-          this.animalsSpawned.push(spawnDef.id);
-          this.animalTypesSpawned.add(spawnDef.id);
-          this._discoverAnimal(spawnDef.id);
-        } else {
-          this.landmarksBuilt.push(spawnDef.id);
-          this._discoverLandmark(spawnDef.id);
-        }
-
-        this.audio.playLifeBurst(spawnDef.rarity || 'common');
-
-        this._emitEvent({
-          type: 'lifeBurst',
-          spawnType,
-          entity: spawnDef,
-          row: spawnPos.row,
-          col: spawnPos.col,
-          sourceRow: row,
-          sourceCol: col,
-        });
-      }
+      // Every full charge injects a wild tile into the back of the queue.
+      this.queue.injectTile('wild', 'back');
     }
+
+    if (grants > 0) {
+      this.audio.playChargeReady();
+      this._emitEvent({
+        type: 'novaCharge',
+        grants,
+        charge: this.wildCharge,
+        meter: this.getWildChargeStatus(),
+      });
+    }
+  }
+
+  _updateComboState(hadMerge) {
+    const prev = this.comboMultiplier;
+
+    if (hadMerge) this.comboStreak++;
+    else this.comboStreak = 0;
+
+    this.comboMultiplier = this._comboMultiplierForStreak(this.comboStreak);
+    this.bestComboMultiplier = Math.max(this.bestComboMultiplier, this.comboMultiplier);
+
+    this._emitEvent({
+      type: 'combo',
+      streak: this.comboStreak,
+      multiplier: this.comboMultiplier,
+      hadMerge,
+      changed: Math.abs(prev - this.comboMultiplier) > 0.001,
+    });
+  }
+
+  _comboMultiplierForStreak(streak) {
+    const value = 1 + Math.min(streak * 0.15, 1.5);
+    return Number(value.toFixed(2));
+  }
+
+  canUseReroll() {
+    return this.state === 'playing' && this.wildCharge > 0 && !!this.queue;
+  }
+
+  useReroll(keepFirst = false) {
+    if (!this.canUseReroll()) return false;
+
+    this.wildCharge--;
+    this.queue.reroll(keepFirst);
+    this.audio.playReroll();
+
+    this._emitEvent({
+      type: 'reroll',
+      charge: this.wildCharge,
+      meter: this.getWildChargeStatus(),
+    });
+
+    this._notify('reroll');
+    return true;
   }
 
   // ── Score ─────────────────────────────────────────────────────────────────
@@ -286,6 +322,24 @@ export class GameState {
 
   getProgress() {
     return Math.min(1, this.score / this.targetScore);
+  }
+
+  getComboStatus() {
+    return {
+      streak: this.comboStreak,
+      multiplier: this.comboMultiplier,
+      bestMultiplier: this.bestComboMultiplier,
+    };
+  }
+
+  getWildChargeStatus() {
+    return {
+      current: this.wildEnergy,
+      target: this.wildEnergyTarget,
+      pct: this.wildEnergyTarget > 0 ? Math.min(1, this.wildEnergy / this.wildEnergyTarget) : 0,
+      charge: this.wildCharge,
+      max: this.maxWildCharge,
+    };
   }
 
   // ── Bonus Goals ──────────────────────────────────────────────────────────
@@ -330,16 +384,18 @@ export class GameState {
       return;
     }
 
-    // Loss? Board full with no possible merges
+    // Loss? Board full with no possible merges.
     if (this.grid.emptyCount() === 0) {
-      // Check if any merges are possible
       let hasMerge = false;
       for (let r = 0; r < this.grid.size; r++) {
         for (let c = 0; c < this.grid.size; c++) {
           const tile = this.grid.get(r, c);
           if (tile && !tile.isAnimal && !tile.isLandmark && tile.id !== 'wild') {
             const group = this.grid.findMergeGroup(r, c);
-            if (group.length >= 3) { hasMerge = true; break; }
+            if (group.length >= 3) {
+              hasMerge = true;
+              break;
+            }
           }
         }
         if (hasMerge) break;
@@ -354,7 +410,6 @@ export class GameState {
   }
 
   _onWin() {
-    // Calculate stardust reward
     const baseDust = this.levelDef ? this.levelDef.stardust : 25;
     const bonusGoals = this.getBonusGoalStatus();
     const completedGoals = bonusGoals.filter(g => g.completed).length;
@@ -368,10 +423,11 @@ export class GameState {
     this.stardust += earned;
     this.totalStardust += earned;
 
-    // Mark level complete
+    // Mark level complete.
     this.levelsCompleted[this.currentLevel] = {
       bestScore: Math.max(this.score, (this.levelsCompleted[this.currentLevel]?.bestScore || 0)),
       bonusCompleted: completedGoals,
+      bestCombo: Math.max(this.bestComboMultiplier, (this.levelsCompleted[this.currentLevel]?.bestCombo || 1)),
     };
 
     this._save();
@@ -400,13 +456,19 @@ export class GameState {
       queueSnap: this.queue.peekAll().map(t => ({ ...t })),
       score: this.score,
       mergeBonus: this.mergeBonus,
+      comboBonus: this.comboBonus,
       turnCount: this.turnCount,
+      comboStreak: this.comboStreak,
+      comboMultiplier: this.comboMultiplier,
+      bestComboMultiplier: this.bestComboMultiplier,
+      wildCharge: this.wildCharge,
+      wildEnergy: this.wildEnergy,
       animalsSpawned: [...this.animalsSpawned],
       landmarksBuilt: [...this.landmarksBuilt],
       tilesCreated: { ...this.tilesCreated },
       animalTypes: new Set(this.animalTypesSpawned),
     });
-    // Keep only last undo
+
     if (this.undoStack.length > 1) this.undoStack.shift();
   }
 
@@ -422,7 +484,13 @@ export class GameState {
     this.queue.setQueue(snap.queueSnap.map(t => t.id));
     this.score = snap.score;
     this.mergeBonus = snap.mergeBonus;
+    this.comboBonus = snap.comboBonus;
     this.turnCount = snap.turnCount;
+    this.comboStreak = snap.comboStreak;
+    this.comboMultiplier = snap.comboMultiplier;
+    this.bestComboMultiplier = snap.bestComboMultiplier;
+    this.wildCharge = snap.wildCharge;
+    this.wildEnergy = snap.wildEnergy;
     this.animalsSpawned = snap.animalsSpawned;
     this.landmarksBuilt = snap.landmarksBuilt;
     this.tilesCreated = snap.tilesCreated;
@@ -431,6 +499,7 @@ export class GameState {
 
     this.audio.playUndo();
     this._notify('undo');
+    this._emitEvent({ type: 'combo', streak: this.comboStreak, multiplier: this.comboMultiplier, changed: true });
     return true;
   }
 
@@ -443,7 +512,7 @@ export class GameState {
       { text: 'Three rocks became a hill! Merging is the heart of your planet.', highlight: null },
       { text: 'Different elements shape your world. Try placing them!', highlight: 'all' },
       { text: 'A new friend! Merging higher tiles brings life to your planet.', highlight: null },
-      { text: 'Reach the Planet Score to complete your planet. Keep merging!', highlight: null },
+      { text: 'Build combo streaks and fill Wild Charge to unlock rerolls.', highlight: null },
     ];
     if (this.tutorialStep >= 0 && this.tutorialStep < messages.length) {
       return messages[this.tutorialStep];
@@ -454,23 +523,20 @@ export class GameState {
   _advanceTutorial(mergeEvents) {
     if (this.tutorialStep === 0 && this.turnCount >= 1) {
       this.tutorialStep = 1;
-      this.queue.setQueue(['earth_1', 'earth_1']);
+      this.queue.setQueue(['earth_1', 'earth_1', 'earth_1']);
       this._notify('tutorial');
     } else if (this.tutorialStep === 1 && mergeEvents.length > 0) {
       this.tutorialStep = 2;
       this._notify('tutorial');
-      // After a short pause, move to step 3
       setTimeout(() => {
         this.tutorialStep = 3;
         this._notify('tutorial');
       }, 1500);
     } else if (this.tutorialStep === 1 && this.turnCount >= 3) {
-      // They placed 3 rocks but didn't merge — still continue
       this.tutorialStep = 3;
       this._notify('tutorial');
     } else if (this.tutorialStep === 3) {
       if (mergeEvents.length > 0) {
-        // Check for life burst
         const hasLifeBurst = this.animalsSpawned.length > 0 || this.landmarksBuilt.length > 0;
         if (hasLifeBurst) {
           this.tutorialStep = 4;
@@ -478,20 +544,98 @@ export class GameState {
           setTimeout(() => {
             this.tutorialStep = 5;
             this.state = 'playing';
+            this.wildCharge = 1;
             this._notify('tutorial');
+            this._emitEvent({
+              type: 'combo',
+              streak: this.comboStreak,
+              multiplier: this.comboMultiplier,
+              changed: true,
+            });
           }, 2000);
         }
       }
       if (this.turnCount >= 8 && this.tutorialStep === 3) {
-        // Force end tutorial
         this.tutorialStep = 5;
         this.state = 'playing';
+        this.wildCharge = 1;
         this._notify('tutorial');
       }
     }
   }
 
-  // ── Collection ───────────────────────────────────────────────────────────
+  // ── Life Burst / Collection ─────────────────────────────────────────────
+
+  _processLifeBurst(row, col, tileDef) {
+    const lb = tileDef.lifeBurst;
+    if (!lb || Math.random() > lb.chance) return;
+
+    const spawnCount = lb.count || 1;
+    for (let i = 0; i < spawnCount; i++) {
+      let spawnType;
+      let spawnDef;
+
+      if (i === 0 && lb.animals && lb.animals.length > 0) {
+        spawnType = 'animal';
+        const animalId = lb.animals[Math.floor(Math.random() * lb.animals.length)];
+        spawnDef = ANIMALS[animalId];
+      } else if (lb.landmarks && lb.landmarks.length > 0) {
+        spawnType = 'landmark';
+        const lmId = lb.landmarks[Math.floor(Math.random() * lb.landmarks.length)];
+        spawnDef = LANDMARKS[lmId];
+      } else if (lb.animals && lb.animals.length > 0) {
+        spawnType = 'animal';
+        const animalId = lb.animals[Math.floor(Math.random() * lb.animals.length)];
+        spawnDef = ANIMALS[animalId];
+      }
+
+      if (!spawnDef) continue;
+
+      const emptyAdj = this.grid.findEmptyAdjacent(row, col);
+      const spawnPos = emptyAdj.length > 0
+        ? emptyAdj[Math.floor(Math.random() * emptyAdj.length)]
+        : this.grid.findNearestEmpty(row, col);
+
+      const entityTile = {
+        id: `${spawnType}_${spawnDef.id}`,
+        name: spawnDef.name,
+        emoji: spawnDef.emoji,
+        points: spawnDef.points,
+        chain: 'entity',
+        tier: 0,
+        isAnimal: spawnType === 'animal',
+        isLandmark: spawnType === 'landmark',
+        entityId: spawnDef.id,
+        rarity: spawnDef.rarity || 'common',
+        color: spawnType === 'animal' ? '#ffb74d' : '#d6b6ff',
+      };
+
+      if (spawnPos) {
+        this.grid.place(spawnPos.row, spawnPos.col, entityTile);
+
+        if (spawnType === 'animal') {
+          this.animalsSpawned.push(spawnDef.id);
+          this.animalTypesSpawned.add(spawnDef.id);
+          this._discoverAnimal(spawnDef.id);
+        } else {
+          this.landmarksBuilt.push(spawnDef.id);
+          this._discoverLandmark(spawnDef.id);
+        }
+
+        this.audio.playLifeBurst(spawnDef.rarity || 'common');
+
+        this._emitEvent({
+          type: 'lifeBurst',
+          spawnType,
+          entity: spawnDef,
+          row: spawnPos.row,
+          col: spawnPos.col,
+          sourceRow: row,
+          sourceCol: col,
+        });
+      }
+    }
+  }
 
   _discoverTile(tileId) {
     if (!this.collection.tiles[tileId]) {
@@ -569,23 +713,23 @@ export class GameState {
       };
       localStorage.setItem('pocketPlanetSave', JSON.stringify(data));
     } catch (e) {
-      // localStorage not available
+      // localStorage unavailable
     }
   }
 
   _loadSave() {
     try {
       const raw = localStorage.getItem('pocketPlanetSave');
-      if (raw) {
-        const data = JSON.parse(raw);
-        this.stardust = data.stardust || 0;
-        this.totalStardust = data.totalStardust || 0;
-        this.levelsCompleted = data.levelsCompleted || {};
-        this.collection = data.collection || { tiles: {}, animals: {}, landmarks: {} };
-        this.currentLevel = data.currentLevel || 1;
-      }
+      if (!raw) return;
+
+      const data = JSON.parse(raw);
+      this.stardust = data.stardust || 0;
+      this.totalStardust = data.totalStardust || 0;
+      this.levelsCompleted = data.levelsCompleted || {};
+      this.collection = data.collection || createEmptyCollection();
+      this.currentLevel = data.currentLevel || 1;
     } catch (e) {
-      // corrupted save, start fresh
+      this.collection = createEmptyCollection();
     }
   }
 
@@ -593,7 +737,7 @@ export class GameState {
     this.stardust = 0;
     this.totalStardust = 0;
     this.levelsCompleted = {};
-    this.collection = { tiles: {}, animals: {}, landmarks: {} };
+    this.collection = createEmptyCollection();
     this.currentLevel = 1;
     localStorage.removeItem('pocketPlanetSave');
   }

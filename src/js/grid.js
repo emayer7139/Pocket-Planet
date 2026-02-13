@@ -98,10 +98,10 @@ export class Grid {
   isFull() {
     for (let r = 0; r < this.size; r++) {
       for (let c = 0; c < this.size; c++) {
-        if (this.cells[r][c] === null) return true; // found empty = not full
+        if (this.cells[r][c] === null) return false;
       }
     }
-    return false; // no empty cells
+    return true;
   }
 
   // Count empty cells.

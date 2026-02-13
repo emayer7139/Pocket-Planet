@@ -10,6 +10,12 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div id="ambient-scene" aria-hidden="true">
+    <div class="scene-stars"></div>
+    <div class="scene-glow scene-glow-a"></div>
+    <div class="scene-glow scene-glow-b"></div>
+  </div>
+
   <div id="app">
 
     <!-- ── Menu Screen ──────────────────────────────────────────────── -->
@@ -44,7 +50,13 @@
           <button class="hud-btn" id="pause-btn" title="Back to levels">&#x2190;</button>
           <button class="hud-btn" id="sound-btn" title="Toggle sound">&#x1F50A;</button>
         </div>
-        <div></div>
+        <div class="hud-right">
+          <div class="combo-chip" id="combo-chip">Combo Ready</div>
+          <button class="hud-btn power-btn" id="reroll-btn" title="Reroll upcoming tiles">
+            &#x21BB;
+            <span class="power-badge" id="reroll-count">1</span>
+          </button>
+        </div>
       </div>
 
       <!-- Score -->
@@ -53,6 +65,12 @@
         <div class="score-target" id="score-target">Target: 0</div>
         <div class="score-bar">
           <div class="score-bar-fill" id="score-bar-fill" style="width: 0%"></div>
+        </div>
+        <div class="nova-meter" id="nova-meter">
+          <span class="nova-label">Wild Charge</span>
+          <div class="nova-track">
+            <div class="nova-fill" id="nova-fill" style="width: 0%"></div>
+          </div>
         </div>
       </div>
 

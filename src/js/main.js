@@ -1,10 +1,17 @@
 // ── Pocket Planet Merge — Main UI Controller ─────────────────────────────────
-// Renders all screens, handles input, drives animations.
+// Renders all screens, handles input, and drives UI animations.
 
 import { GameState } from './gameState.js';
 import { TILES, LEVELS, BIOMES, ANIMALS, LANDMARKS } from './tiles.js';
 
 const game = new GameState();
+
+const BODY_THEMES = ['biome-menu', 'biome-grassland', 'biome-desert', 'biome-tundra'];
+const BIOME_ACCENTS = {
+  grassland: '#6ae3a0',
+  desert: '#ffc46b',
+  tundra: '#8edcff',
+};
 
 // ── DOM References ───────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -24,14 +31,26 @@ function showScreen(name) {
   screens[name].classList.add('active');
 }
 
+function applyTheme(theme) {
+  document.body.classList.remove(...BODY_THEMES);
+  document.body.classList.add(theme);
+}
+
+function applyBiomeTheme(biomeId) {
+  const theme = BODY_THEMES.includes(`biome-${biomeId}`) ? `biome-${biomeId}` : 'biome-menu';
+  applyTheme(theme);
+}
+
 // ── Menu Screen ──────────────────────────────────────────────────────────────
 function renderMenu() {
+  applyTheme('biome-menu');
   $('#menu-stardust').textContent = `${game.stardust} Stardust`;
   showScreen('menu');
 }
 
 // ── Level Select ─────────────────────────────────────────────────────────────
 function renderLevels() {
+  applyTheme('biome-menu');
   const container = $('#levels-list');
   container.innerHTML = '';
   const levels = game.getAvailableLevels();
@@ -50,6 +69,8 @@ function renderLevels() {
 
     const node = document.createElement('div');
     node.className = 'level-node';
+    node.style.setProperty('--level-accent', BIOME_ACCENTS[level.biome] || '#70d3f7');
+
     if (level.completed) node.classList.add('completed');
     else if (level.unlocked && !level.completed) node.classList.add('current');
     else node.classList.add('locked');
@@ -69,6 +90,7 @@ function renderLevels() {
         showScreen('game');
       });
     }
+
     container.appendChild(node);
   }
 
@@ -81,14 +103,14 @@ let cellEls = [];
 
 function renderGame() {
   const biome = game.getBiomeForLevel(game.currentLevel);
-  document.body.style.background = biome.bgColor;
-  $('#game-screen').style.background = 'transparent';
+  applyBiomeTheme(biome.id);
 
   renderGrid();
   renderScore();
   renderQueue();
   renderBonusGoals();
   renderUndoButton();
+  renderHudStatus();
   renderTutorial();
 }
 
@@ -105,9 +127,7 @@ function renderGrid() {
       cell.className = 'cell';
       cell.dataset.row = r;
       cell.dataset.col = c;
-
       cell.addEventListener('click', () => handleCellClick(r, c));
-
       gridEl.appendChild(cell);
       cellEls[r][c] = cell;
     }
@@ -121,15 +141,16 @@ function refreshGridTiles(animatedCells = {}) {
     for (let c = 0; c < game.grid.size; c++) {
       const cell = cellEls[r][c];
       const tile = game.grid.get(r, c);
-
-      // Clear existing tile content
       const existing = cell.querySelector('.tile');
       if (existing) existing.remove();
 
       if (tile) {
         cell.classList.add('occupied');
+        cell.dataset.chain = tile.chain || 'entity';
+
         const tileEl = document.createElement('div');
         tileEl.className = 'tile';
+        tileEl.style.setProperty('--tile-color', tile.color || '#7ac4ff');
 
         const key = `${r},${c}`;
         if (animatedCells[key] === 'merge-result') {
@@ -138,6 +159,8 @@ function refreshGridTiles(animatedCells = {}) {
           tileEl.classList.add('life-burst', 'entity');
         } else if (animatedCells[key] === 'merging') {
           tileEl.classList.add('merging');
+        } else if (animatedCells[key] === 'place') {
+          tileEl.classList.add('placed');
         } else if (tile.isAnimal || tile.isLandmark) {
           tileEl.classList.add('entity');
         }
@@ -154,6 +177,7 @@ function refreshGridTiles(animatedCells = {}) {
         cell.appendChild(tileEl);
       } else {
         cell.classList.remove('occupied');
+        delete cell.dataset.chain;
       }
     }
   }
@@ -166,25 +190,24 @@ async function handleCellClick(row, col) {
 
   game.audio.resume();
 
-  // Snapshot queue before placing
-  const placedTile = game.queue.peek();
   const success = await game.placeTile(row, col);
   if (!success) return;
 
-  // Animate: show the placed tile
   refreshGridTiles({ [`${row},${col}`]: 'place' });
+  renderQueue(true);
+  renderScore();
+  renderBonusGoals();
+  renderUndoButton();
+  renderHudStatus();
+  renderTutorial();
 
-  // Small delay then process merge visuals
   await sleep(100);
 
-  // Refresh with any merge results
   const animated = {};
-  // Check what changed — find merge results and life bursts
   for (let r = 0; r < game.grid.size; r++) {
     for (let c = 0; c < game.grid.size; c++) {
       const tile = game.grid.get(r, c);
-      if (tile && tile.isAnimal) animated[`${r},${c}`] = 'life-burst';
-      if (tile && tile.isLandmark) animated[`${r},${c}`] = 'life-burst';
+      if (tile && (tile.isAnimal || tile.isLandmark)) animated[`${r},${c}`] = 'life-burst';
     }
   }
   refreshGridTiles(animated);
@@ -192,32 +215,29 @@ async function handleCellClick(row, col) {
   renderQueue();
   renderBonusGoals();
   renderUndoButton();
+  renderHudStatus();
   renderTutorial();
 
-  // Check for end state
   if (game.state === 'won' || game.state === 'lost') {
-    await sleep(600);
+    await sleep(650);
     renderResult();
   }
 }
 
 function renderScore() {
   const scoreEl = $('#score-current');
-  const oldScore = parseInt(scoreEl.textContent) || 0;
-  scoreEl.textContent = game.getTotalScore();
+  const oldScore = parseInt(scoreEl.textContent, 10) || 0;
+  const nextScore = game.getTotalScore();
+  scoreEl.textContent = nextScore;
 
-  if (game.getTotalScore() > oldScore) {
-    scoreEl.classList.remove('bump');
-    void scoreEl.offsetWidth; // force reflow
-    scoreEl.classList.add('bump');
-  }
+  if (nextScore > oldScore) pulseClass(scoreEl, 'bump', 300);
 
   $('#score-target').textContent = `Target: ${game.targetScore}`;
   const pct = Math.min(100, Math.round(game.getProgress() * 100));
   $('#score-bar-fill').style.width = pct + '%';
 }
 
-function renderQueue() {
+function renderQueue(animate = false) {
   const q = game.queue.peekAll();
   const container = $('#queue-display');
   container.innerHTML = '';
@@ -231,12 +251,17 @@ function renderQueue() {
     }
 
     const qTile = document.createElement('div');
-    qTile.className = 'queue-tile' + (i === 0 ? ' next' : '');
-    qTile.textContent = tile.emoji;
+    qTile.className = 'queue-tile' + (i === 0 ? ' next' : '') + (animate ? ' shift-in' : '');
+    qTile.style.setProperty('--tile-color', tile.color || '#86c9ff');
+
+    const emoji = document.createElement('span');
+    emoji.className = 'queue-emoji';
+    emoji.textContent = tile.emoji;
+    qTile.appendChild(emoji);
 
     const label = document.createElement('span');
     label.className = 'queue-tile-label';
-    label.textContent = i === 0 ? 'Next' : 'Then';
+    label.textContent = i === 0 ? 'Next' : i === 1 ? 'Soon' : 'Later';
     qTile.appendChild(label);
 
     container.appendChild(qTile);
@@ -261,6 +286,26 @@ function renderUndoButton() {
   $('#undo-count').textContent = game.undosRemaining;
 }
 
+function renderHudStatus(animateCombo = false) {
+  const combo = game.getComboStatus();
+  const comboEl = $('#combo-chip');
+  comboEl.textContent = combo.streak > 0
+    ? `Combo x${combo.multiplier.toFixed(2)}`
+    : 'Combo Ready';
+  comboEl.classList.toggle('active', combo.streak > 0);
+  if (animateCombo) pulseClass(comboEl, 'pulse', 460);
+
+  const wild = game.getWildChargeStatus();
+  $('#nova-fill').style.width = `${Math.round(wild.pct * 100)}%`;
+  const meter = $('#nova-meter');
+  meter.classList.toggle('charged', wild.charge > 0);
+  meter.setAttribute('data-charge', String(wild.charge));
+
+  const rerollBtn = $('#reroll-btn');
+  rerollBtn.disabled = !game.canUseReroll();
+  $('#reroll-count').textContent = wild.charge;
+}
+
 function renderTutorial() {
   const banner = $('#tutorial-banner');
   const msg = game.getTutorialMessage();
@@ -272,7 +317,7 @@ function renderTutorial() {
   }
 }
 
-// ── Undo Handler ─────────────────────────────────────────────────────────────
+// ── Undo / Reroll ───────────────────────────────────────────────────────────
 function handleUndo() {
   if (game.undo()) {
     refreshGridTiles();
@@ -280,14 +325,19 @@ function handleUndo() {
     renderQueue();
     renderBonusGoals();
     renderUndoButton();
+    renderHudStatus();
   }
+}
+
+function handleReroll() {
+  if (!game.useReroll(false)) return;
+  renderQueue(true);
+  renderHudStatus();
 }
 
 // ── Result Screen ────────────────────────────────────────────────────────────
 function renderResult() {
   const isWin = game.state === 'won';
-
-  // Fireworks on win
   if (isWin) spawnFireworks();
 
   $('#result-icon').textContent = isWin ? '\uD83C\uDF0D' : '\uD83D\uDE14';
@@ -295,46 +345,39 @@ function renderResult() {
   titleEl.textContent = isWin ? 'Planet Complete!' : 'Planet Full!';
   titleEl.className = 'result-title ' + (isWin ? 'win' : 'loss');
 
-  // Score breakdown
   const scoreRows = $('#result-score-rows');
   scoreRows.innerHTML = '';
   addResultRow(scoreRows, 'Planet Score', game.grid.calculateScore());
   addResultRow(scoreRows, 'Merge Bonuses', game.mergeBonus);
-  if (game.animalsSpawned.length > 0) {
-    addResultRow(scoreRows, 'Animals', game.animalsSpawned.length);
+  if (game.comboBonus > 0) addResultRow(scoreRows, 'Combo Bonus', game.comboBonus);
+  if (game.bestComboMultiplier > 1) {
+    addResultRow(scoreRows, 'Peak Combo', `x${game.bestComboMultiplier.toFixed(2)}`);
   }
-  if (game.landmarksBuilt.length > 0) {
-    addResultRow(scoreRows, 'Landmarks', game.landmarksBuilt.length);
-  }
+  if (game.animalsSpawned.length > 0) addResultRow(scoreRows, 'Animals', game.animalsSpawned.length);
+  if (game.landmarksBuilt.length > 0) addResultRow(scoreRows, 'Landmarks', game.landmarksBuilt.length);
   addResultRow(scoreRows, 'Total', game.getTotalScore(), true);
 
-  // Stardust
   const reward = isWin ? game.getWinReward() : game.getLossReward();
   $('#result-stardust').textContent = `+${reward.total} Stardust`;
 
-  // Bonus goals
   const bonusContainer = $('#result-bonus');
   bonusContainer.innerHTML = '';
-  const goals = game.getBonusGoalStatus();
-  for (const goal of goals) {
+  for (const goal of game.getBonusGoalStatus()) {
     const el = document.createElement('div');
     el.className = 'bonus-result ' + (goal.completed ? 'done' : 'missed');
     el.innerHTML = `<span>${goal.completed ? '\u2713' : '\u2717'} ${goal.label}</span><span>${goal.current}/${goal.count}</span>`;
     bonusContainer.appendChild(el);
   }
 
-  // Discoveries
   const discContainer = $('#result-discoveries');
   discContainer.innerHTML = '';
-  const discoveries = game.getNewDiscoveries();
-  for (const d of discoveries) {
+  for (const d of game.getNewDiscoveries()) {
     const badge = document.createElement('div');
     badge.className = 'discovery-badge';
     badge.innerHTML = `<span class="new-tag">NEW!</span> ${d.emoji} ${d.name}`;
     discContainer.appendChild(badge);
   }
 
-  // Buttons
   const nextBtn = $('#result-next-btn');
   if (isWin) {
     const nextId = game.getNextLevelId();
@@ -367,7 +410,8 @@ function renderResult() {
 function addResultRow(container, label, value, isTotal = false) {
   const row = document.createElement('div');
   row.className = 'result-row' + (isTotal ? ' total' : '');
-  row.innerHTML = `<span class="label">${label}</span><span class="value">${value.toLocaleString()}</span>`;
+  const valueText = typeof value === 'number' ? value.toLocaleString() : value;
+  row.innerHTML = `<span class="label">${label}</span><span class="value">${valueText}</span>`;
   container.appendChild(row);
 }
 
@@ -375,14 +419,13 @@ function addResultRow(container, label, value, isTotal = false) {
 let collectionTab = 'tiles';
 
 function renderCollection() {
+  applyTheme('biome-menu');
   showScreen('collection');
   renderCollectionTab(collectionTab);
 }
 
 function renderCollectionTab(tab) {
   collectionTab = tab;
-
-  // Update tab buttons
   $$('.collection-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.tab === tab);
   });
@@ -434,14 +477,14 @@ function createCollectionItem(emoji, name, count, undiscovered) {
   return item;
 }
 
-// ── Fireworks ────────────────────────────────────────────────────────────────
+// ── Visual Effects ───────────────────────────────────────────────────────────
 function spawnFireworks() {
   for (let i = 0; i < 5; i++) {
     setTimeout(() => {
       const x = 50 + Math.random() * (window.innerWidth - 100);
       const y = 50 + Math.random() * (window.innerHeight * 0.5);
       createFirework(x, y);
-    }, i * 300);
+    }, i * 260);
   }
 }
 
@@ -451,12 +494,12 @@ function createFirework(cx, cy) {
   container.style.left = cx + 'px';
   container.style.top = cy + 'px';
 
-  const colors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF6FD8', '#C084FC'];
+  const colors = ['#ff7961', '#ffd76f', '#73e59f', '#6fbaff', '#9f8fff', '#fca5d8'];
   for (let i = 0; i < 12; i++) {
     const p = document.createElement('div');
     p.className = 'firework-particle';
     const angle = (i / 12) * Math.PI * 2;
-    const dist = 40 + Math.random() * 40;
+    const dist = 38 + Math.random() * 42;
     p.style.setProperty('--fx', Math.cos(angle) * dist + 'px');
     p.style.setProperty('--fy', Math.sin(angle) * dist + 'px');
     p.style.background = colors[Math.floor(Math.random() * colors.length)];
@@ -467,8 +510,7 @@ function createFirework(cx, cy) {
   setTimeout(() => container.remove(), 1200);
 }
 
-// ── Merge Particles ──────────────────────────────────────────────────────────
-function spawnMergeParticles(row, col, color = '#4CAF50') {
+function spawnMergeParticles(row, col, color = '#6ee1aa') {
   if (!gridEl) return;
   const cellEl = cellEls[row]?.[col];
   if (!cellEl) return;
@@ -476,13 +518,13 @@ function spawnMergeParticles(row, col, color = '#4CAF50') {
   const rect = cellEl.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
+  const colors = [color, '#ffd770', '#f7a5cc', '#78ceff', '#87efb5'];
 
-  const colors = [color, '#FFD54F', '#FF6FD8', '#4FC3F7', '#81C784'];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     const p = document.createElement('div');
     p.className = 'particle';
-    const angle = (i / 8) * Math.PI * 2;
-    const dist = 20 + Math.random() * 25;
+    const angle = (i / 10) * Math.PI * 2;
+    const dist = 18 + Math.random() * 28;
     p.style.left = cx + 'px';
     p.style.top = cy + 'px';
     p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
@@ -493,26 +535,50 @@ function spawnMergeParticles(row, col, color = '#4CAF50') {
   }
 }
 
+function spawnSystemPop(text, anchorEl, cls = '') {
+  if (!anchorEl) return;
+  const rect = anchorEl.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = `system-pop ${cls}`.trim();
+  pop.textContent = text;
+  pop.style.left = rect.left + rect.width / 2 - 38 + 'px';
+  pop.style.top = rect.top - 10 + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 900);
+}
+
+function pulseClass(el, className, duration = 450) {
+  if (!el) return;
+  el.classList.remove(className);
+  void el.offsetWidth;
+  el.classList.add(className);
+  setTimeout(() => el.classList.remove(className), duration);
+}
+
 // ── Game Event Listener ──────────────────────────────────────────────────────
 game.onEvent = (event) => {
+  if (event.type === 'place') {
+    const cellEl = cellEls[event.row]?.[event.col];
+    pulseClass(cellEl, 'place-glow', 380);
+  }
+
   if (event.type === 'merge') {
-    // Show merge score popup
     const cellEl = cellEls[event.toRow]?.[event.toCol];
     if (cellEl) {
       const pop = document.createElement('div');
       pop.className = 'merge-pop' + (event.chainStep > 0 ? ' chain' : '');
-      const label = event.chainStep > 0 ? `+${event.bonus} Chain!` : `+${event.bonus}`;
+      let label = `+${event.bonus}`;
+      if (event.comboBonus > 0) label += ` x${event.comboMultiplier.toFixed(2)}`;
+      if (event.chainStep > 0) label += ' Chain!';
       pop.textContent = label;
       const rect = cellEl.getBoundingClientRect();
-      pop.style.left = rect.left + rect.width / 2 - 20 + 'px';
+      pop.style.left = rect.left + rect.width / 2 - 30 + 'px';
       pop.style.top = rect.top - 10 + 'px';
       document.body.appendChild(pop);
-      setTimeout(() => pop.remove(), 900);
-
+      setTimeout(() => pop.remove(), 950);
       spawnMergeParticles(event.toRow, event.toCol, event.resultTile?.color);
     }
 
-    // Refresh with merge animation
     const animated = {};
     animated[`${event.toRow},${event.toCol}`] = 'merge-result';
     setTimeout(() => refreshGridTiles(animated), 50);
@@ -523,22 +589,44 @@ game.onEvent = (event) => {
     animated[`${event.row},${event.col}`] = 'life-burst';
     setTimeout(() => {
       refreshGridTiles(animated);
-      spawnMergeParticles(event.row, event.col, '#FFB74D');
-    }, 200);
+      spawnMergeParticles(event.row, event.col, '#ffbe6d');
+    }, 180);
+  }
+
+  if (event.type === 'combo') {
+    renderHudStatus(event.changed && event.hadMerge);
+  }
+
+  if (event.type === 'novaCharge') {
+    renderHudStatus();
+    renderQueue(true);
+    pulseClass($('#nova-meter'), 'burst', 620);
+    spawnSystemPop(`Wild +${event.grants}`, $('#nova-meter'), 'wild');
+  }
+
+  if (event.type === 'reroll') {
+    renderQueue(true);
+    renderHudStatus();
+    spawnSystemPop('Queue rerolled', $('#reroll-btn'), 'reroll');
   }
 };
 
 game.onStateChange = (type) => {
   if (type === 'tutorial') {
     renderTutorial();
+    renderHudStatus();
   }
 };
 
 // ── Utility ──────────────────────────────────────────────────────────────────
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ── Wire Up Buttons ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  applyTheme('biome-menu');
+
   // Menu
   $('#btn-play').addEventListener('click', () => {
     game.audio.init();
@@ -568,11 +656,11 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#sound-btn').textContent = on ? '\uD83D\uDD0A' : '\uD83D\uDD07';
   });
   $('#undo-btn').addEventListener('click', () => handleUndo());
+  $('#reroll-btn').addEventListener('click', () => handleReroll());
 
   // Result
   $('#result-map-btn').addEventListener('click', () => {
     game.audio.playTap();
-    document.body.style.background = '#E8F5E9';
     renderLevels();
   });
 
@@ -588,6 +676,5 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMenu();
   });
 
-  // Start on menu
   renderMenu();
 });
