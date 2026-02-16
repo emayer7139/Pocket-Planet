@@ -147,6 +147,14 @@ export const BIOMES = {
     bgColor: '#E3F2FD',
     unlockScore: 15000,
   },
+  volcanic: {
+    id: 'volcanic',
+    name: 'Volcanic',
+    chains: { primary: 'earth', secondary: 'sand', tertiary: 'water' },
+    weights: { primary: 52, secondary: 30, tertiary: 18 },
+    bgColor: '#2D1F1B',
+    unlockScore: 22000,
+  },
 };
 
 // ── Level Definitions ────────────────────────────────────────────────────────
@@ -195,7 +203,7 @@ export const LEVELS = [
     ],
     stardust: 100, description: 'A world complete.' },
 
-  // ── Desert (levels 11-15) ──
+  // ── Desert (levels 11-20) ──
   { id: 11, biome: 'desert', target: 3000, gridSize: 5,
     bonusGoals: [{ type: 'create_tile', tileId: 'sand_3', count: 1, label: 'Create 1 Oasis' }],
     stardust: 80, description: 'Heat shimmers on the horizon.' },
@@ -217,4 +225,71 @@ export const LEVELS = [
       { type: 'build_landmark', count: 2, label: 'Build 2 landmarks' },
     ],
     stardust: 150, description: 'A mirage becomes real.' },
+  { id: 16, biome: 'desert', target: 8200, gridSize: 5,
+    bonusGoals: [{ type: 'create_tile', tileId: 'sand_4', count: 1, label: 'Create 1 Temple' }],
+    stardust: 170, description: 'Ancient stone wakes beneath the dunes.' },
+  { id: 17, biome: 'desert', target: 9000, gridSize: 5,
+    bonusGoals: [{ type: 'spawn_rare', count: 1, label: 'Spawn 1 rare creature' }],
+    stardust: 180, description: 'Only the toughest life survives.' },
+  { id: 18, biome: 'desert', target: 9800, gridSize: 5,
+    bonusGoals: [{ type: 'create_tile', tileId: 'sand_5', count: 1, label: 'Create Mirage City' }],
+    stardust: 195, description: 'Legends glimmer on the horizon.' },
+  { id: 19, biome: 'desert', target: 10600, gridSize: 5,
+    bonusGoals: [
+      { type: 'build_landmark', count: 2, label: 'Build 2 landmarks' },
+      { type: 'spawn_animal_types', count: 2, label: 'Spawn 2 species' },
+    ],
+    stardust: 210, description: 'Trade routes stretch across the sands.' },
+  { id: 20, biome: 'desert', target: 11500, gridSize: 5,
+    bonusGoals: [
+      { type: 'spawn_animals', count: 6, label: 'Spawn 6 animals' },
+      { type: 'build_landmark', count: 3, label: 'Build 3 landmarks' },
+    ],
+    stardust: 230, description: 'The desert kingdom stands eternal.' },
+
+  // ── Tundra (levels 21-25) ──
+  { id: 21, biome: 'tundra', target: 5000, gridSize: 5,
+    bonusGoals: [{ type: 'create_tile', tileId: 'snow_3', count: 1, label: 'Create 1 Glacier' }],
+    stardust: 160, description: 'A cold wind sweeps the world.' },
+  { id: 22, biome: 'tundra', target: 6200, gridSize: 5,
+    bonusGoals: [{ type: 'spawn_animals', count: 3, label: 'Spawn 3 animals' }],
+    stardust: 175, description: 'Tracks appear in the fresh snow.' },
+  { id: 23, biome: 'tundra', target: 7600, gridSize: 5,
+    bonusGoals: [{ type: 'build_landmark', count: 1, label: 'Build 1 landmark' }],
+    stardust: 195, description: 'Ice crystals tower into the sky.' },
+  { id: 24, biome: 'tundra', target: 9000, gridSize: 5,
+    bonusGoals: [
+      { type: 'create_tile', tileId: 'snow_4', count: 1, label: 'Create 1 Ice Palace' },
+      { type: 'spawn_rare', count: 2, label: 'Spawn 2 rare animals' },
+    ],
+    stardust: 215, description: 'Auroras dance over frozen seas.' },
+  { id: 25, biome: 'tundra', target: 10500, gridSize: 5,
+    bonusGoals: [
+      { type: 'build_landmark', count: 2, label: 'Build 2 landmarks' },
+      { type: 'spawn_animal_types', count: 3, label: 'Spawn 3 species' },
+    ],
+    stardust: 240, description: 'The polar realm reaches full bloom.' },
+
+  // ── Volcanic (levels 26-30) ──
+  { id: 26, biome: 'volcanic', target: 7200, gridSize: 5,
+    bonusGoals: [{ type: 'create_tile', tileId: 'earth_4', count: 1, label: 'Create 1 Volcano' }],
+    stardust: 185, description: 'Magma veins crack the crust.' },
+  { id: 27, biome: 'volcanic', target: 8600, gridSize: 5,
+    bonusGoals: [{ type: 'spawn_animals', count: 4, label: 'Spawn 4 animals' }],
+    stardust: 205, description: 'Heat-loving creatures emerge.' },
+  { id: 28, biome: 'volcanic', target: 10000, gridSize: 5,
+    bonusGoals: [{ type: 'build_landmark', count: 2, label: 'Build 2 landmarks' }],
+    stardust: 225, description: 'Basalt monuments pierce the ash.' },
+  { id: 29, biome: 'volcanic', target: 11600, gridSize: 5,
+    bonusGoals: [
+      { type: 'create_tile', tileId: 'sand_5', count: 1, label: 'Create Mirage City' },
+      { type: 'spawn_rare', count: 2, label: 'Spawn 2 rare animals' },
+    ],
+    stardust: 250, description: 'Fire and sand forge strange wonders.' },
+  { id: 30, biome: 'volcanic', target: 13200, gridSize: 5,
+    bonusGoals: [
+      { type: 'spawn_animals', count: 7, label: 'Spawn 7 animals' },
+      { type: 'build_landmark', count: 3, label: 'Build 3 landmarks' },
+    ],
+    stardust: 280, description: 'A blazing world reaches equilibrium.' },
 ];

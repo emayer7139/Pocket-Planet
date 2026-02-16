@@ -60,7 +60,11 @@ body::before {
 /* --- Ambient Scene Layer --- */
 #ambient-scene {
   position: fixed;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100vw, 430px);
+  transform: translateX(-50%);
   overflow: hidden;
   pointer-events: none;
   z-index: 1;
@@ -74,10 +78,46 @@ body::before {
   position: absolute;
 }
 
+.ambient-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 0;
+  filter: saturate(1.04) contrast(1.03);
+}
+
+.ambient-video-menu {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
+}
+
+.ambient-video-grassland,
+.ambient-video-desert,
+.ambient-video-tundra,
+.ambient-video-volcanic {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
+}
+
 .scene-stars {
   position: absolute;
   inset: 0;
   opacity: 0;
+  z-index: 2;
 }
 
 .scene-glow {
@@ -87,12 +127,27 @@ body::before {
   border-radius: 999px;
   filter: blur(36px);
   opacity: 0;
+  z-index: 2;
 }
 
 body.biome-menu {
   --accent: #3ea94c;
   --accent-light: #8ce69a;
   --accent-deep: #2f8640;
+}
+
+body.biome-menu #ambient-scene {
+  opacity: 1;
+  background: #060d1b;
+}
+
+body.biome-menu .ambient-video-menu {
+  opacity: 0.94;
+}
+
+body.biome-menu #ambient-scene::before,
+body.biome-menu #ambient-scene::after {
+  content: none;
 }
 
 body.biome-grassland {
@@ -103,9 +158,11 @@ body.biome-grassland {
 
 body.biome-grassland #ambient-scene {
   opacity: 1;
-  background:
-    radial-gradient(52% 34% at 50% 26%, rgba(255, 248, 200, 0.66), rgba(255, 248, 200, 0) 72%),
-    linear-gradient(180deg, #3fa4e6 0%, #7ec9f2 24%, #c8ebff 47%, #deedbd 47.4%, #b8da72 66%, #86be54 100%);
+  background: #0f2418;
+}
+
+body.biome-grassland .ambient-video-grassland {
+  opacity: 1;
 }
 
 body.biome-grassland #ambient-scene::before {
@@ -186,7 +243,26 @@ body.biome-desert {
 
 body.biome-desert #ambient-scene {
   opacity: 1;
-  background: linear-gradient(180deg, #ffeecf 0%, #ffe0af 45%, #f4c072 100%);
+  background: #2b1f14;
+}
+
+body.biome-desert .ambient-video-desert {
+  opacity: 1;
+}
+
+body.biome-grassland #ambient-scene::before,
+body.biome-grassland #ambient-scene::after,
+body.biome-desert #ambient-scene::before,
+body.biome-desert #ambient-scene::after {
+  content: none;
+}
+
+body.biome-grassland .scene-stars,
+body.biome-grassland .scene-glow,
+body.biome-desert .scene-stars,
+body.biome-desert .scene-glow {
+  opacity: 0;
+  animation: none;
 }
 
 body.biome-tundra {
@@ -197,13 +273,38 @@ body.biome-tundra {
 
 body.biome-tundra #ambient-scene {
   opacity: 1;
-  background: linear-gradient(180deg, #e7f6ff 0%, #d6ecff 40%, #b9dcf5 100%);
+  background: #0e1f33;
+}
+
+body.biome-tundra .ambient-video-tundra {
+  opacity: 1;
+}
+
+body.biome-volcanic {
+  --accent: #cb6543;
+  --accent-light: #f49a73;
+  --accent-deep: #a74a2e;
+}
+
+body.biome-volcanic #ambient-scene {
+  opacity: 1;
+  background: #1f120d;
+}
+
+body.biome-volcanic .ambient-video-volcanic {
+  opacity: 1;
+}
+
+body.biome-volcanic #ambient-scene::before,
+body.biome-volcanic #ambient-scene::after {
+  content: none;
 }
 
 /* --- Main App Surface --- */
 #app {
   position: relative;
   z-index: 2;
+  width: min(100vw, 430px);
   max-width: 430px;
   height: 100%;
   margin: 0 auto;
@@ -211,11 +312,7 @@ body.biome-tundra #ambient-scene {
 }
 
 #app::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.12));
-  z-index: -1;
+  content: none;
 }
 
 .screen {
@@ -248,13 +345,78 @@ body.biome-tundra #ambient-scene {
 #menu-screen {
   justify-content: center;
   align-items: center;
-  gap: 24px;
+  position: relative;
   text-align: center;
+}
+
+.menu-top-row {
+  position: absolute;
+  left: 50%;
+  top: calc(6px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  width: min(100%, 390px);
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.menu-top-actions {
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(12, 26, 51, 0.72), rgba(8, 18, 38, 0.68));
+  box-shadow: 0 10px 22px rgba(3, 12, 30, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(168, 204, 236, 0.42);
+  backdrop-filter: blur(6px) saturate(1.12);
+  -webkit-backdrop-filter: blur(6px) saturate(1.12);
+}
+
+.menu-top-actions .btn-top {
+  min-width: 130px;
+  padding: 10px 18px;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.25px;
+  color: #ebf5ff;
+  background: transparent;
+  box-shadow: none;
+}
+
+.menu-top-actions .btn-top + .btn-top {
+  border-left: 1px solid rgba(158, 195, 229, 0.34);
+}
+
+.menu-top-actions .btn-top:active {
+  transform: none;
+  background: rgba(209, 231, 255, 0.16);
+}
+
+.menu-hero {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100%, 340px);
+  padding: 22px 16px 20px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(7, 16, 34, 0.68), rgba(8, 17, 36, 0.52));
+  box-shadow: 0 18px 36px rgba(2, 10, 27, 0.36), inset 0 0 0 1px rgba(190, 221, 255, 0.2);
+  backdrop-filter: blur(5px) saturate(1.08);
+  -webkit-backdrop-filter: blur(5px) saturate(1.08);
+  z-index: 2;
 }
 
 .title-planet {
   font-size: 74px;
-  filter: drop-shadow(0 7px 14px rgba(47, 96, 55, 0.25));
+  filter: drop-shadow(0 9px 18px rgba(4, 16, 38, 0.62));
   animation: planetFloat 3.6s ease-in-out infinite;
 }
 
@@ -263,8 +425,9 @@ body.biome-tundra #ambient-scene {
   font-size: 31px;
   line-height: 0.92;
   font-weight: 800;
-  color: #1d3348;
+  color: #eef6ff;
   letter-spacing: 0.4px;
+  text-shadow: 0 3px 12px rgba(2, 9, 22, 0.72);
 }
 
 .game-title span {
@@ -274,7 +437,8 @@ body.biome-tundra #ambient-scene {
   font-size: 15px;
   line-height: 1.2;
   font-weight: 600;
-  color: #4d7089;
+  color: #d5e5ff;
+  text-shadow: 0 2px 8px rgba(3, 11, 28, 0.74);
 }
 
 .stardust-display {
@@ -284,9 +448,9 @@ body.biome-tundra #ambient-scene {
   font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: #d7a92f;
-  background: linear-gradient(180deg, rgba(255, 236, 175, 0.65), rgba(242, 230, 165, 0.38));
-  box-shadow: inset 0 0 0 1px rgba(234, 193, 89, 0.18);
+  color: #7d560d;
+  background: linear-gradient(180deg, #ffe9a4 0%, #f4d982 100%);
+  box-shadow: inset 0 0 0 1px rgba(188, 141, 36, 0.28), 0 3px 10px rgba(28, 42, 56, 0.18);
 }
 
 /* --- Buttons --- */
@@ -348,6 +512,8 @@ body.biome-tundra #ambient-scene {
   font-family: var(--font-display);
   letter-spacing: 0.3px;
   font-weight: 800;
+  color: #ecf5ff;
+  text-shadow: 0 2px 8px rgba(5, 14, 28, 0.55);
 }
 
 .back-btn {
@@ -395,6 +561,7 @@ body.biome-tundra #ambient-scene {
   font-family: var(--font-ui);
   font-size: 19px;
   font-weight: 700;
+  color: #213a52;
   cursor: pointer;
   transition: transform 0.14s ease, box-shadow 0.2s ease;
   position: relative;
@@ -407,8 +574,8 @@ body.biome-tundra #ambient-scene {
 .level-node .level-score {
   font-size: 10px;
   margin-top: 2px;
-  color: #4b7590;
-  font-weight: 600;
+  color: #315773;
+  font-weight: 700;
 }
 
 .level-node.completed {
@@ -439,7 +606,10 @@ body.biome-tundra #ambient-scene {
 }
 
 .level-node.locked {
-  opacity: 0.4;
+  opacity: 0.82;
+  background: rgba(20, 36, 58, 0.6);
+  border-color: rgba(157, 190, 219, 0.34);
+  color: #d6e6f7;
   cursor: default;
 }
 
@@ -716,13 +886,14 @@ body.biome-tundra #ambient-scene {
 .shop-section h3 {
   font-size: 14px;
   font-weight: 800;
-  color: #2a4f6c;
+  color: #eef6ff;
+  text-shadow: 0 2px 8px rgba(5, 14, 28, 0.5);
   margin-bottom: 8px;
 }
 
 .shop-demo {
   font-size: 11px;
-  color: #6a879d;
+  color: #d4e5f8;
 }
 
 .shop-grid {
@@ -751,7 +922,7 @@ body.biome-tundra #ambient-scene {
 .shop-card-desc {
   margin-top: 3px;
   font-size: 12px;
-  color: #4a6e86;
+  color: #244b68;
   line-height: 1.3;
 }
 
@@ -759,7 +930,7 @@ body.biome-tundra #ambient-scene {
   margin-top: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #537a92;
+  color: #1f435f;
 }
 
 .shop-buy-btn {
@@ -809,8 +980,8 @@ body.biome-tundra #ambient-scene {
   width: var(--cell-size);
   height: var(--cell-size);
   border-radius: var(--radius-sm);
-  border: 2px dashed rgba(53, 100, 62, 0.26);
-  background: rgba(255, 255, 255, 0.38);
+  border: 2px dashed rgba(161, 201, 232, 0.46);
+  background: rgba(9, 20, 36, 0.44);
   position: relative;
   cursor: pointer;
   overflow: visible;
@@ -818,20 +989,20 @@ body.biome-tundra #ambient-scene {
 }
 
 .cell:hover {
-  background: rgba(255, 255, 255, 0.5);
-  border-color: rgba(58, 154, 73, 0.42);
+  background: rgba(12, 26, 46, 0.58);
+  border-color: rgba(182, 223, 252, 0.68);
 }
 
 .cell.occupied {
   cursor: default;
-  border-color: rgba(42, 95, 52, 0.06);
-  background: transparent;
+  border-color: rgba(165, 202, 230, 0.22);
+  background: rgba(8, 18, 32, 0.6);
   box-shadow: none;
 }
 
 .cell.occupied:hover {
-  background: transparent;
-  border-color: rgba(42, 95, 52, 0.06);
+  background: rgba(8, 18, 32, 0.6);
+  border-color: rgba(165, 202, 230, 0.22);
 }
 
 .cell.place-glow {
@@ -1034,7 +1205,7 @@ body.biome-tundra #ambient-scene {
 }
 
 .tile-motion-water .tile-glyph {
-  opacity: 0.08;
+  opacity: 0.72;
   filter: drop-shadow(0 1px 2px rgba(10, 27, 42, 0.22));
 }
 
@@ -1071,8 +1242,26 @@ body.biome-tundra #ambient-scene {
   animation: waterDropPulse 1.2s ease-in-out infinite;
 }
 
+.tile-motion-water_1 .tile-fx {
+  display: none;
+}
+
+.tile-motion-water_1 .tile-glyph {
+  opacity: 1;
+  animation: dropSquish 1.3s ease-in-out infinite;
+}
+
 .tile-motion-water_2 .tile-fx::before {
   animation: pondCirculate 1.8s ease-in-out infinite;
+}
+
+.tile-motion-water_2 .tile-fx {
+  display: none;
+}
+
+.tile-motion-water_2 .tile-glyph {
+  opacity: 1;
+  animation: pondRoll 1.8s ease-in-out infinite;
 }
 
 .tile-motion-water_3 .tile-fx::before {
@@ -1094,7 +1283,7 @@ body.biome-tundra #ambient-scene {
 }
 
 .tile-motion-plant .tile-glyph {
-  opacity: 0.14;
+  opacity: 0.62;
   transform-origin: 50% 92%;
   filter: drop-shadow(0 2px 2px rgba(13, 53, 22, 0.2));
 }
@@ -1130,8 +1319,12 @@ body.biome-tundra #ambient-scene {
 }
 
 .tile-motion-plant_1 .tile-fx {
-  inset: 20% 14% 12%;
-  animation: none;
+  display: none;
+}
+
+.tile-motion-plant_1 .tile-glyph {
+  opacity: 1;
+  animation: grassFlutter 1.6s ease-in-out infinite;
 }
 
 .tile-motion-plant_1 .tile-fx::before {
@@ -1191,6 +1384,58 @@ body.biome-tundra #ambient-scene {
   animation: leafTwinkle 1.9s ease-in-out infinite;
 }
 
+.tile-chain-sand .tile-glyph {
+  opacity: 0.96;
+  transform-origin: 50% 84%;
+  filter: drop-shadow(0 2px 3px rgba(81, 50, 24, 0.26));
+}
+
+.tile-motion-sand_1 .tile-glyph {
+  animation: sandWhirl 1.7s ease-in-out infinite;
+}
+
+.tile-motion-sand_2 .tile-glyph {
+  animation: duneRoll 2s ease-in-out infinite;
+}
+
+.tile-motion-sand_3 .tile-glyph {
+  animation: oasisWave 2.2s ease-in-out infinite;
+}
+
+.tile-motion-sand_4 .tile-glyph {
+  animation: templePulse 2.4s ease-in-out infinite;
+}
+
+.tile-motion-sand_5 .tile-glyph {
+  animation: mirageSpark 2.6s ease-in-out infinite;
+}
+
+.tile-chain-snow .tile-glyph {
+  opacity: 0.98;
+  transform-origin: 50% 78%;
+  filter: drop-shadow(0 2px 3px rgba(18, 58, 88, 0.22));
+}
+
+.tile-motion-snow_1 .tile-glyph {
+  animation: snowflakeSpin 1.8s linear infinite;
+}
+
+.tile-motion-snow_2 .tile-glyph {
+  animation: driftFloat 2.1s ease-in-out infinite;
+}
+
+.tile-motion-snow_3 .tile-glyph {
+  animation: glacierShift 2.4s ease-in-out infinite;
+}
+
+.tile-motion-snow_4 .tile-glyph {
+  animation: palaceGlint 2.6s ease-in-out infinite;
+}
+
+.tile-motion-snow_5 .tile-glyph {
+  animation: auroraShimmer 2.9s ease-in-out infinite;
+}
+
 .tile-motion-rainbow::before {
   opacity: 0.38;
   width: 78%;
@@ -1232,10 +1477,127 @@ body.biome-tundra #ambient-scene {
 
 .tile-motion-animal .tile-glyph {
   animation: animalHop 2.1s ease-in-out infinite;
+  transform-origin: 50% 80%;
 }
 
 .tile-motion-landmark .tile-glyph {
   animation: landmarkAura 2.8s ease-in-out infinite;
+}
+
+.tile-motion-animal_goat .tile-glyph {
+  animation: goatButt 1.8s ease-in-out infinite;
+}
+
+.tile-motion-animal_eagle .tile-glyph {
+  animation: eagleGlide 2.2s ease-in-out infinite;
+}
+
+.tile-motion-animal_frog .tile-glyph {
+  animation: frogBounce 1.7s ease-in-out infinite;
+}
+
+.tile-motion-animal_fish .tile-glyph {
+  animation: fishSwim 1.9s ease-in-out infinite;
+}
+
+.tile-motion-animal_deer .tile-glyph {
+  animation: deerPrance 2s ease-in-out infinite;
+}
+
+.tile-motion-animal_rabbit .tile-glyph {
+  animation: rabbitHop 1.6s ease-in-out infinite;
+}
+
+.tile-motion-animal_swan .tile-glyph {
+  animation: swanGlide 2.4s ease-in-out infinite;
+}
+
+.tile-motion-animal_owl .tile-glyph {
+  animation: owlBlink 2.3s ease-in-out infinite;
+}
+
+.tile-motion-animal_penguin .tile-glyph {
+  animation: penguinWaddle 2s ease-in-out infinite;
+}
+
+.tile-motion-animal_butterfly .tile-glyph {
+  animation: butterflyFlutter 1.5s ease-in-out infinite;
+}
+
+.tile-motion-animal_salamander .tile-glyph {
+  animation: salamanderCreep 2.1s ease-in-out infinite;
+}
+
+.tile-motion-animal_phoenix .tile-glyph {
+  animation: phoenixFlare 2.4s ease-in-out infinite;
+}
+
+.tile-motion-animal_whale .tile-glyph {
+  animation: whaleRoll 2.7s ease-in-out infinite;
+}
+
+.tile-motion-animal_unicorn .tile-glyph {
+  animation: unicornShine 2.5s ease-in-out infinite;
+}
+
+.tile-motion-animal_camel .tile-glyph {
+  animation: camelStride 2.2s ease-in-out infinite;
+}
+
+.tile-motion-animal_scorpion .tile-glyph {
+  animation: scorpionSnap 1.9s ease-in-out infinite;
+}
+
+.tile-motion-animal_fennec .tile-glyph {
+  animation: fennecTwitch 1.8s ease-in-out infinite;
+}
+
+.tile-motion-animal_polar_bear .tile-glyph {
+  animation: polarBearLumber 2.5s ease-in-out infinite;
+}
+
+.tile-motion-animal_snow_fox .tile-glyph {
+  animation: snowFoxDart 1.7s ease-in-out infinite;
+}
+
+.tile-motion-landmark_lava_pool .tile-glyph {
+  animation: lavaPoolBubble 1.7s ease-in-out infinite;
+}
+
+.tile-motion-landmark_sky_temple .tile-glyph {
+  animation: skyTempleHover 2.4s ease-in-out infinite;
+}
+
+.tile-motion-landmark_waterfall .tile-glyph {
+  animation: waterfallPour 1.9s ease-in-out infinite;
+}
+
+.tile-motion-landmark_lighthouse .tile-glyph {
+  animation: lighthouseSweep 2.2s ease-in-out infinite;
+}
+
+.tile-motion-landmark_treehouse .tile-glyph {
+  animation: treehouseSway 2.1s ease-in-out infinite;
+}
+
+.tile-motion-landmark_fairy_ring .tile-glyph {
+  animation: fairyRingTwirl 2.3s ease-in-out infinite;
+}
+
+.tile-motion-landmark_sphinx .tile-glyph {
+  animation: sphinxGaze 2.6s ease-in-out infinite;
+}
+
+.tile-motion-landmark_pyramid .tile-glyph {
+  animation: pyramidGlint 2.4s ease-in-out infinite;
+}
+
+.tile-motion-landmark_ice_spire .tile-glyph {
+  animation: iceSpireGlow 2.2s ease-in-out infinite;
+}
+
+.tile-motion-landmark_northern_lights .tile-glyph {
+  animation: northernLightsWave 2.6s ease-in-out infinite;
 }
 /* --- Queue --- */
 .queue-area {
@@ -1545,12 +1907,13 @@ body.biome-tundra #ambient-scene {
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 700;
-  color: #4f6f87;
+  color: #ddeaf9;
+  text-shadow: 0 1px 4px rgba(4, 11, 24, 0.45);
   cursor: pointer;
 }
 
 .collection-tab.active {
-  color: #1f3b50;
+  color: #17324a;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow-sm);
 }
@@ -1558,8 +1921,9 @@ body.biome-tundra #ambient-scene {
 .collection-progress {
   text-align: center;
   font-size: 13px;
-  color: #4f6f87;
-  font-weight: 600;
+  color: #e2efff;
+  text-shadow: 0 1px 4px rgba(4, 11, 24, 0.45);
+  font-weight: 700;
 }
 
 .collection-grid {
@@ -1569,6 +1933,17 @@ body.biome-tundra #ambient-scene {
   gap: 8px;
   overflow-y: auto;
   align-content: start;
+}
+
+.collection-group-title {
+  grid-column: 1 / -1;
+  padding: 8px 2px 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #dcebff;
+  text-shadow: 0 1px 3px rgba(4, 10, 22, 0.45);
 }
 
 .collection-item {
@@ -1595,7 +1970,7 @@ body.biome-tundra #ambient-scene {
   max-width: 90%;
   text-align: center;
   line-height: 1.1;
-  color: #5e7a91;
+  color: #2d4f69;
   font-weight: 700;
 }
 
@@ -1604,7 +1979,7 @@ body.biome-tundra #ambient-scene {
   right: 5px;
   top: 3px;
   font-size: 8px;
-  color: #4e7088;
+  color: #2b4d68;
 }
 
 /* --- Fireworks --- */
@@ -2462,6 +2837,417 @@ body.biome-tundra #ambient-scene {
   50% {
     transform: rotate(3deg) scale(1.05);
     filter: saturate(1.2);
+  }
+}
+
+@keyframes sandWhirl {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(5deg) translateY(-1px);
+  }
+}
+
+@keyframes duneRoll {
+  0%,
+  100% {
+    transform: translateX(-1px) scaleX(0.98);
+  }
+  50% {
+    transform: translateX(1px) scaleX(1.05);
+  }
+}
+
+@keyframes oasisWave {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(2deg);
+  }
+}
+
+@keyframes templePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 2px 3px rgba(81, 50, 24, 0.26));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 5px rgba(255, 206, 126, 0.5));
+  }
+}
+
+@keyframes mirageSpark {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+    filter: saturate(1.2);
+  }
+}
+
+@keyframes snowflakeSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes driftFloat {
+  0%,
+  100% {
+    transform: translateY(0) translateX(-1px);
+  }
+  50% {
+    transform: translateY(-2px) translateX(1px);
+  }
+}
+
+@keyframes glacierShift {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.04);
+  }
+}
+
+@keyframes palaceGlint {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translateY(-2px);
+    filter: brightness(1.16);
+  }
+}
+
+@keyframes auroraShimmer {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-3deg);
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  50% {
+    transform: translateX(1px) rotate(3deg);
+    filter: hue-rotate(20deg) saturate(1.18);
+  }
+}
+
+@keyframes goatButt {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(6deg) translateY(-2px);
+  }
+}
+
+@keyframes eagleGlide {
+  0%,
+  100% {
+    transform: translateY(0) translateX(-1px);
+  }
+  50% {
+    transform: translateY(-3px) translateX(1px);
+  }
+}
+
+@keyframes frogBounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-4px) scale(1.05);
+  }
+}
+
+@keyframes fishSwim {
+  0%,
+  100% {
+    transform: translateX(-2px) rotate(-4deg);
+  }
+  50% {
+    transform: translateX(2px) rotate(4deg);
+  }
+}
+
+@keyframes deerPrance {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+}
+
+@keyframes rabbitHop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes swanGlide {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-3deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(3deg);
+  }
+}
+
+@keyframes owlBlink {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  45% {
+    transform: translateY(-1px) scaleY(0.92);
+  }
+}
+
+@keyframes penguinWaddle {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-1px);
+  }
+}
+
+@keyframes butterflyFlutter {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.08);
+  }
+}
+
+@keyframes salamanderCreep {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-3deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(3deg);
+  }
+}
+
+@keyframes phoenixFlare {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 2px 3px rgba(10, 27, 42, 0.28));
+  }
+  50% {
+    transform: translateY(-3px) scale(1.1);
+    filter: drop-shadow(0 0 7px rgba(255, 125, 88, 0.65));
+  }
+}
+
+@keyframes whaleRoll {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(4deg);
+  }
+}
+
+@keyframes unicornShine {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 2px 3px rgba(10, 27, 42, 0.28));
+  }
+  50% {
+    transform: translateY(-3px);
+    filter: drop-shadow(0 0 6px rgba(255, 226, 255, 0.8));
+  }
+}
+
+@keyframes camelStride {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-2deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(2deg);
+  }
+}
+
+@keyframes scorpionSnap {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes fennecTwitch {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(3deg);
+  }
+}
+
+@keyframes polarBearLumber {
+  0%,
+  100% {
+    transform: translateX(-1px);
+  }
+  50% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes snowFoxDart {
+  0%,
+  100% {
+    transform: translateX(-1px) translateY(0);
+  }
+  50% {
+    transform: translateX(2px) translateY(-2px);
+  }
+}
+
+@keyframes lavaPoolBubble {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 2px 3px rgba(10, 27, 42, 0.28));
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+    filter: drop-shadow(0 0 6px rgba(255, 126, 80, 0.62));
+  }
+}
+
+@keyframes skyTempleHover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes waterfallPour {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-1px) scaleY(1.06);
+  }
+}
+
+@keyframes lighthouseSweep {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+    filter: drop-shadow(0 2px 3px rgba(10, 27, 42, 0.28));
+  }
+  50% {
+    transform: rotate(3deg);
+    filter: drop-shadow(0 0 6px rgba(255, 252, 202, 0.72));
+  }
+}
+
+@keyframes treehouseSway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes fairyRingTwirl {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.06);
+  }
+}
+
+@keyframes sphinxGaze {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes pyramidGlint {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.16);
+  }
+}
+
+@keyframes iceSpireGlow {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 2px 3px rgba(10, 27, 42, 0.28));
+  }
+  50% {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 0 6px rgba(188, 236, 255, 0.76));
+  }
+}
+
+@keyframes northernLightsWave {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-4deg);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(4deg);
+    filter: hue-rotate(25deg);
   }
 }
 /* --- Responsive --- */
