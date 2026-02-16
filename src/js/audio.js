@@ -89,6 +89,21 @@ export class AudioManager {
     this._playTone(800, 'square', 0.03, 0.05);
   }
 
+  // Play reroll sweep.
+  playReroll() {
+    if (!this.enabled || !this.ctx) return;
+    this._playTone(520, 'triangle', 0.08, 0.16, 0);
+    this._playTone(700, 'triangle', 0.07, 0.16, 0.07);
+    this._playTone(900, 'triangle', 0.06, 0.18, 0.14);
+  }
+
+  // Play charge-ready stinger.
+  playChargeReady() {
+    if (!this.enabled || !this.ctx) return;
+    this._playTone(880, 'sine', 0.09, 0.18, 0);
+    this._playTone(1046.5, 'sine', 0.08, 0.22, 0.08);
+  }
+
   // Internal: play a tone with given frequency, waveform, volume, duration, delay.
   _playTone(freq, type = 'triangle', volume = 0.1, duration = 0.2, delay = 0) {
     if (!this.ctx) return;

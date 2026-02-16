@@ -46,6 +46,37 @@ export class TileQueue {
     this.queue = tileIds.map(id => ({ ...TILES[id] }));
   }
 
+  // Reroll queue entries. Optionally keep the current next tile.
+  reroll(keepFirst = false) {
+    const start = keepFirst ? 1 : 0;
+    for (let i = start; i < this.queue.length; i++) {
+      this.queue[i] = this._generate();
+    }
+  }
+
+  // Inject a specific tile into the queue.
+  injectTile(tileId, where = 'back') {
+    if (!TILES[tileId] || this.queue.length === 0) return false;
+
+    const tile = { ...TILES[tileId] };
+    if (where === 'front') {
+      this.queue[0] = tile;
+      return true;
+    }
+
+    if (where === 'back') {
+      this.queue[this.queue.length - 1] = tile;
+      return true;
+    }
+
+    if (Number.isInteger(where) && where >= 0 && where < this.queue.length) {
+      this.queue[where] = tile;
+      return true;
+    }
+
+    return false;
+  }
+
   _generate() {
     // Wild tile check
     this.wildCounter++;

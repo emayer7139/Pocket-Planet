@@ -10,6 +10,12 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div id="ambient-scene" aria-hidden="true">
+    <div class="scene-stars"></div>
+    <div class="scene-glow scene-glow-a"></div>
+    <div class="scene-glow scene-glow-b"></div>
+  </div>
+
   <div id="app">
 
     <!-- ── Menu Screen ──────────────────────────────────────────────── -->
@@ -21,6 +27,7 @@
       </h1>
       <div class="stardust-display" id="menu-stardust">0 Stardust</div>
       <button class="btn btn-primary" id="btn-play">Play</button>
+      <button class="btn btn-secondary" id="btn-shop">Shop</button>
       <button class="btn btn-secondary" id="btn-collection">Collection</button>
     </div>
 
@@ -44,7 +51,14 @@
           <button class="hud-btn" id="pause-btn" title="Back to levels">&#x2190;</button>
           <button class="hud-btn" id="sound-btn" title="Toggle sound">&#x1F50A;</button>
         </div>
-        <div></div>
+        <div class="hud-right">
+          <div class="combo-chip" id="combo-chip">Combo Ready</div>
+          <button class="hud-btn" id="shop-quick-btn" title="Open shop">&#x1F6D2;</button>
+          <button class="hud-btn power-btn" id="reroll-btn" title="Reroll upcoming tiles">
+            &#x21BB;
+            <span class="power-badge" id="reroll-count">1</span>
+          </button>
+        </div>
       </div>
 
       <!-- Score -->
@@ -54,10 +68,30 @@
         <div class="score-bar">
           <div class="score-bar-fill" id="score-bar-fill" style="width: 0%"></div>
         </div>
+        <div class="nova-meter" id="nova-meter">
+          <span class="nova-label">Wild Charge</span>
+          <div class="nova-track">
+            <div class="nova-fill" id="nova-fill" style="width: 0%"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Bonus Goals -->
       <div class="bonus-goals" id="bonus-goals"></div>
+
+      <!-- Power Tray -->
+      <div class="power-tray" id="power-tray">
+        <button class="power-chip" id="power-swap" data-power="swap" title="Swap two tiles">
+          Swap <span class="power-chip-count" id="power-swap-count">0</span>
+        </button>
+        <button class="power-chip" id="power-wild" data-power="wildSeed" title="Place a wild tile">
+          Wild <span class="power-chip-count" id="power-wild-count">0</span>
+        </button>
+        <button class="power-chip" id="power-clear" data-power="clear" title="Remove one tile">
+          Clear <span class="power-chip-count" id="power-clear-count">0</span>
+        </button>
+      </div>
+      <div class="power-hint" id="power-hint"></div>
 
       <!-- Grid -->
       <div class="grid-wrapper">
@@ -88,6 +122,7 @@
     <div id="result-screen" class="screen">
       <div class="result-icon" id="result-icon">🌍</div>
       <h2 class="result-title" id="result-title">Planet Complete!</h2>
+      <div class="result-subtitle" id="result-subtitle"></div>
 
       <div class="result-score" id="result-score-rows">
         <!-- Rows populated by JS -->
@@ -108,6 +143,27 @@
         <button class="btn btn-secondary" id="result-retry-btn">Retry &#x1F504;</button>
       </div>
       <button class="btn btn-secondary" id="result-map-btn" style="margin-top:4px">World Map</button>
+    </div>
+
+    <!-- ── Shop Screen ──────────────────────────────────────────────── -->
+    <div id="shop-screen" class="screen">
+      <div class="levels-header">
+        <button class="back-btn" id="shop-back">&larr;</button>
+        <h2>Shop</h2>
+        <div style="width:36px"></div>
+      </div>
+
+      <div class="shop-wallet" id="shop-wallet">0 Stardust</div>
+
+      <div class="shop-section">
+        <h3>Powerups</h3>
+        <div class="shop-grid" id="shop-powers"></div>
+      </div>
+
+      <div class="shop-section">
+        <h3>Stardust Packs <span class="shop-demo">Demo</span></h3>
+        <div class="shop-grid" id="shop-stardust"></div>
+      </div>
     </div>
 
     <!-- ── Collection Screen ────────────────────────────────────────── -->
