@@ -6,12 +6,14 @@ import { TILES, BIOMES, ANIMALS, LANDMARKS } from './tiles.js';
 
 const game = new GameState();
 
-const BODY_THEMES = ['biome-menu', 'biome-grassland', 'biome-desert', 'biome-tundra'];
+const BODY_THEMES = ['biome-menu', 'biome-grassland', 'biome-desert', 'biome-tundra', 'biome-volcanic'];
 const BIOME_ACCENTS = {
   grassland: '#6ae3a0',
   desert: '#ffc46b',
   tundra: '#8edcff',
+  volcanic: '#ff9b7a',
 };
+let devUnlockAllLevels = false;
 
 // ── DOM References ───────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -25,6 +27,37 @@ const screens = {
   shop: $('#shop-screen'),
   collection: $('#collection-screen'),
 };
+const ambientVideos = {
+  'biome-menu': $('#ambient-video-menu'),
+  'biome-grassland': $('#ambient-video-grassland'),
+  'biome-desert': $('#ambient-video-desert'),
+  'biome-tundra': $('#ambient-video-tundra'),
+  'biome-volcanic': $('#ambient-video-volcanic'),
+};
+const AMBIENT_THEME_VIDEO = {
+  'biome-menu': 'biome-menu',
+  'biome-grassland': 'biome-grassland',
+  'biome-desert': 'biome-desert',
+  'biome-tundra': 'biome-tundra',
+  'biome-volcanic': 'biome-volcanic',
+};
+
+function syncAmbientVideoPlayback(activeTheme) {
+  const activeVideoTheme = AMBIENT_THEME_VIDEO[activeTheme] || null;
+  for (const [theme, video] of Object.entries(ambientVideos)) {
+    if (!video) continue;
+    video.muted = true;
+
+    if (theme === activeVideoTheme) {
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    } else {
+      video.pause();
+    }
+  }
+}
 
 // ── Screen Management ────────────────────────────────────────────────────────
 function showScreen(name) {
@@ -35,6 +68,7 @@ function showScreen(name) {
 function applyTheme(theme) {
   document.body.classList.remove(...BODY_THEMES);
   document.body.classList.add(theme);
+  syncAmbientVideoPlayback(theme);
 }
 
 function applyBiomeTheme(biomeId) {
@@ -43,9 +77,14 @@ function applyBiomeTheme(biomeId) {
 }
 
 // ── Menu Screen ──────────────────────────────────────────────────────────────
+function syncMenuStardust() {
+  const menuStardust = $('#menu-stardust');
+  if (menuStardust) menuStardust.textContent = `${game.stardust} Stardust`;
+}
+
 function renderMenu() {
   applyTheme('biome-menu');
-  $('#menu-stardust').textContent = `${game.stardust} Stardust`;
+  syncMenuStardust();
   showScreen('menu');
 }
 
@@ -71,17 +110,18 @@ function renderLevels() {
     const node = document.createElement('div');
     node.className = 'level-node';
     node.style.setProperty('--level-accent', BIOME_ACCENTS[level.biome] || '#70d3f7');
+    const isUnlocked = level.unlocked || devUnlockAllLevels;
 
     if (level.completed) node.classList.add('completed');
     else if (level.unlocked && !level.completed) node.classList.add('current');
-    else node.classList.add('locked');
+    else if (!isUnlocked) node.classList.add('locked');
 
     node.innerHTML = `<span>${level.id}</span>`;
     if (level.bestScore > 0) {
       node.innerHTML += `<span class="level-score">${level.bestScore}</span>`;
     }
 
-    if (level.unlocked) {
+    if (isUnlocked) {
       node.addEventListener('click', () => {
         game.audio.init();
         game.audio.resume();
@@ -176,6 +216,8 @@ function getTileMotionClasses(tile) {
   if (id.startsWith('earth_')) motion.push('tile-motion-earth');
   if (id.startsWith('water_')) motion.push('tile-motion-water');
   if (id.startsWith('plant_')) motion.push('tile-motion-plant');
+  if (id.startsWith('sand_')) motion.push('tile-motion-sand');
+  if (id.startsWith('snow_')) motion.push('tile-motion-snow');
   if (id === 'wild') motion.push('tile-motion-rainbow');
 
   if (id === 'earth_2' || id === 'earth_3' || id === 'earth_4' || id === 'earth_5') {
@@ -664,7 +706,7 @@ function addResultRow(container, label, value, isTotal = false) {
 }
 
 // ── Collection Screen ────────────────────────────────────────────────────────
-let collectionTab = 'tiles';
+let collectionTab = 'nature';
 
 function renderCollection() {
   applyTheme('biome-menu');
@@ -681,15 +723,35 @@ function renderCollectionTab(tab) {
   const grid = $('#collection-grid');
   grid.innerHTML = '';
 
-  if (tab === 'tiles') {
+  if (tab === 'nature') {
     const allTiles = Object.values(TILES).filter(t => t.id !== 'wild');
     const discovered = Object.keys(game.collection.tiles).length;
     $('#collection-progress').textContent = `${discovered} / ${allTiles.length} discovered`;
 
-    for (const tile of allTiles) {
-      const d = game.collection.tiles[tile.id];
-      const item = createCollectionItem(tile.emoji, tile.name, d ? `\u00D7${d.count}` : '', !d);
-      grid.appendChild(item);
+    const groups = [
+      { chain: 'earth', label: 'Earth' },
+      { chain: 'water', label: 'Water' },
+      { chain: 'plant', label: 'Plant' },
+      { chain: 'sand', label: 'Sand' },
+      { chain: 'snow', label: 'Snow' },
+    ];
+
+    for (const group of groups) {
+      const chainTiles = allTiles
+        .filter(tile => tile.chain === group.chain)
+        .sort((a, b) => a.tier - b.tier);
+      if (chainTiles.length === 0) continue;
+
+      const title = document.createElement('div');
+      title.className = 'collection-group-title';
+      title.textContent = group.label;
+      grid.appendChild(title);
+
+      for (const tile of chainTiles) {
+        const d = game.collection.tiles[tile.id];
+        const item = createCollectionItem(tile.emoji, tile.name, d ? `\u00D7${d.count}` : '', !d);
+        grid.appendChild(item);
+      }
     }
   } else if (tab === 'animals') {
     const allAnimals = Object.values(ANIMALS);
@@ -762,7 +824,7 @@ function renderShop() {
         spawnSystemPop('Need more Stardust', $('#shop-wallet'), 'reroll');
         return;
       }
-      $('#menu-stardust').textContent = `${game.stardust} Stardust`;
+      syncMenuStardust();
       renderShop();
       renderPowerTray();
       spawnSystemPop(`+1 ${power.name}`, $('#shop-wallet'), 'wild');
@@ -793,7 +855,7 @@ function renderShop() {
       const ok = window.confirm(`Simulate purchase of ${pack.name} (${pack.priceLabel})?`);
       if (!ok) return;
       game.purchaseStardustPack(pack.id);
-      $('#menu-stardust').textContent = `${game.stardust} Stardust`;
+      syncMenuStardust();
       renderShop();
       renderPowerTray();
       spawnSystemPop(`+${pack.amount} Stardust`, $('#shop-wallet'), 'wild');
@@ -990,6 +1052,21 @@ function sleep(ms) {
 // ── Wire Up Buttons ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   applyTheme('biome-menu');
+
+  document.addEventListener('keydown', (event) => {
+    const isDevToggle = event.code === 'Backquote' || event.key === '~' || event.key === '`';
+    if (!isDevToggle || event.repeat) return;
+    if (!screens.levels.classList.contains('active')) return;
+
+    event.preventDefault();
+    devUnlockAllLevels = !devUnlockAllLevels;
+    renderLevels();
+    spawnSystemPop(
+      devUnlockAllLevels ? 'Dev Mode: all levels unlocked' : 'Dev Mode: off',
+      $('#levels-back'),
+      devUnlockAllLevels ? 'wild' : 'reroll'
+    );
+  });
 
   // Menu
   $('#btn-play').addEventListener('click', () => {

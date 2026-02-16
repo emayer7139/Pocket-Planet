@@ -9,8 +9,23 @@
   <title>Pocket Planet Merge</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="biome-menu">
   <div id="ambient-scene" aria-hidden="true">
+    <video class="ambient-video ambient-video-menu" id="ambient-video-menu" autoplay muted loop playsinline webkit-playsinline preload="auto">
+      <source src="assets/space.mp4" type="video/mp4">
+    </video>
+    <video class="ambient-video ambient-video-grassland" id="ambient-video-grassland" autoplay muted loop playsinline webkit-playsinline preload="auto">
+      <source src="assets/grass.mp4" type="video/mp4">
+    </video>
+    <video class="ambient-video ambient-video-desert" id="ambient-video-desert" autoplay muted loop playsinline webkit-playsinline preload="auto">
+      <source src="assets/desert.mp4" type="video/mp4">
+    </video>
+    <video class="ambient-video ambient-video-tundra" id="ambient-video-tundra" autoplay muted loop playsinline webkit-playsinline preload="auto">
+      <source src="assets/snow.mp4" type="video/mp4">
+    </video>
+    <video class="ambient-video ambient-video-volcanic" id="ambient-video-volcanic" autoplay muted loop playsinline webkit-playsinline preload="auto">
+      <source src="assets/volcano.mp4" type="video/mp4">
+    </video>
     <div class="scene-stars"></div>
     <div class="scene-glow scene-glow-a"></div>
     <div class="scene-glow scene-glow-b"></div>
@@ -20,15 +35,21 @@
 
     <!-- ── Menu Screen ──────────────────────────────────────────────── -->
     <div id="menu-screen" class="screen active">
-      <div class="title-planet">🌍</div>
-      <h1 class="game-title">
-        Pocket Planet<br>Merge
-        <span>Grow tiny worlds, one merge at a time</span>
-      </h1>
-      <div class="stardust-display" id="menu-stardust">0 Stardust</div>
-      <button class="btn btn-primary" id="btn-play">Play</button>
-      <button class="btn btn-secondary" id="btn-shop">Shop</button>
-      <button class="btn btn-secondary" id="btn-collection">Collection</button>
+      <div class="menu-top-row">
+        <div class="menu-top-actions">
+          <button class="btn btn-top" id="btn-shop">Shop</button>
+          <button class="btn btn-top" id="btn-collection">Collection</button>
+        </div>
+      </div>
+
+      <div class="menu-hero">
+        <div class="title-planet">🌍</div>
+        <h1 class="game-title">
+          Pocket Planet<br>Merge
+          <span>Grow tiny worlds, one merge at a time</span>
+        </h1>
+        <button class="btn btn-primary" id="btn-play">Play</button>
+      </div>
     </div>
 
     <!-- ── Level Select Screen ──────────────────────────────────────── -->
@@ -175,7 +196,7 @@
       </div>
 
       <div class="collection-tabs">
-        <button class="collection-tab active" data-tab="tiles">Tiles</button>
+        <button class="collection-tab active" data-tab="nature">Nature</button>
         <button class="collection-tab" data-tab="animals">Animals</button>
         <button class="collection-tab" data-tab="landmarks">Landmarks</button>
       </div>
