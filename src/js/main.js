@@ -2,7 +2,7 @@
 // Renders all screens, handles input, and drives UI animations.
 
 import { GameState } from './gameState.js';
-import { TILES, LEVELS, BIOMES, ANIMALS, LANDMARKS } from './tiles.js';
+import { TILES, BIOMES, ANIMALS, LANDMARKS } from './tiles.js';
 
 const game = new GameState();
 
@@ -22,6 +22,7 @@ const screens = {
   levels: $('#levels-screen'),
   game: $('#game-screen'),
   result: $('#result-screen'),
+  shop: $('#shop-screen'),
   collection: $('#collection-screen'),
 };
 
@@ -85,6 +86,8 @@ function renderLevels() {
         game.audio.init();
         game.audio.resume();
         game.audio.playTap();
+        activePower = null;
+        swapSelection = null;
         game.startLevel(level.id);
         renderGame();
         showScreen('game');
@@ -100,10 +103,20 @@ function renderLevels() {
 // ── Gameplay Screen ──────────────────────────────────────────────────────────
 let gridEl = null;
 let cellEls = [];
+let activePower = null;
+let swapSelection = null;
+let shopReturnScreen = 'menu';
+
+const TILE_EFFECT_CLASSES = ['placed', 'merging', 'merged-result', 'life-burst'];
 
 function renderGame() {
   const biome = game.getBiomeForLevel(game.currentLevel);
   applyBiomeTheme(biome.id);
+
+  if (activePower && !game.canUsePower(activePower)) {
+    activePower = null;
+    swapSelection = null;
+  }
 
   renderGrid();
   renderScore();
@@ -111,6 +124,8 @@ function renderGame() {
   renderBonusGoals();
   renderUndoButton();
   renderHudStatus();
+  renderPowerTray();
+  renderPowerHint();
   renderTutorial();
 }
 
@@ -136,46 +151,116 @@ function renderGrid() {
   refreshGridTiles();
 }
 
+function sanitizeClassToken(value) {
+  return String(value || 'unknown')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-');
+}
+
+function getTileSignature(tile) {
+  return [
+    tile.id || '',
+    tile.emoji || '',
+    tile.chain || '',
+    tile.tier || 0,
+    tile.isAnimal ? 1 : 0,
+    tile.isLandmark ? 1 : 0,
+  ].join('|');
+}
+
+function getTileMotionClasses(tile) {
+  const motion = [];
+  const id = tile.id || '';
+
+  if (id) motion.push(`tile-motion-${sanitizeClassToken(id)}`);
+  if (id.startsWith('earth_')) motion.push('tile-motion-earth');
+  if (id.startsWith('water_')) motion.push('tile-motion-water');
+  if (id.startsWith('plant_')) motion.push('tile-motion-plant');
+  if (id === 'wild') motion.push('tile-motion-rainbow');
+
+  if (id === 'earth_2' || id === 'earth_3' || id === 'earth_4' || id === 'earth_5') {
+    motion.push('tile-motion-snow');
+  }
+
+  if (tile.isAnimal) motion.push('tile-motion-animal');
+  if (tile.isLandmark) motion.push('tile-motion-landmark');
+
+  return [...new Set(motion)];
+}
+
+function createTileElement(tile) {
+  const tileEl = document.createElement('div');
+  tileEl.className = 'tile';
+  tileEl.dataset.signature = getTileSignature(tile);
+  tileEl.dataset.tileId = tile.id;
+  tileEl.dataset.chain = tile.chain || 'entity';
+  tileEl.style.setProperty('--tile-color', tile.color || '#7ac4ff');
+
+  tileEl.classList.add(`tile-id-${sanitizeClassToken(tile.id)}`);
+  tileEl.classList.add(`tile-chain-${sanitizeClassToken(tile.chain || 'entity')}`);
+
+  const motionClasses = getTileMotionClasses(tile);
+  if (motionClasses.length > 0) tileEl.classList.add(...motionClasses);
+
+  if (tile.isAnimal || tile.isLandmark) tileEl.classList.add('entity');
+
+  const fx = document.createElement('span');
+  fx.className = 'tile-fx';
+  tileEl.appendChild(fx);
+
+  const glyph = document.createElement('span');
+  glyph.className = 'tile-glyph';
+  glyph.textContent = tile.emoji;
+  tileEl.appendChild(glyph);
+
+  if (tile.tier > 0 && !tile.isAnimal && !tile.isLandmark) {
+    const tierBadge = document.createElement('span');
+    tierBadge.className = 'tile-tier';
+    tierBadge.textContent = 'T' + tile.tier;
+    tileEl.appendChild(tierBadge);
+  }
+
+  return tileEl;
+}
+
+function applyTileAnimation(tileEl, tile, animationType) {
+  tileEl.classList.remove(...TILE_EFFECT_CLASSES);
+
+  if (tile.isAnimal || tile.isLandmark) tileEl.classList.add('entity');
+  if (!animationType) return;
+
+  // Force reflow so repeated animation classes replay on existing nodes.
+  void tileEl.offsetWidth;
+
+  if (animationType === 'merge-result') tileEl.classList.add('merged-result');
+  else if (animationType === 'life-burst') tileEl.classList.add('life-burst', 'entity');
+  else if (animationType === 'merging') tileEl.classList.add('merging');
+  else if (animationType === 'place') tileEl.classList.add('placed');
+}
+
 function refreshGridTiles(animatedCells = {}) {
   for (let r = 0; r < game.grid.size; r++) {
     for (let c = 0; c < game.grid.size; c++) {
       const cell = cellEls[r][c];
       const tile = game.grid.get(r, c);
       const existing = cell.querySelector('.tile');
-      if (existing) existing.remove();
+      const key = `${r},${c}`;
 
       if (tile) {
         cell.classList.add('occupied');
         cell.dataset.chain = tile.chain || 'entity';
+        const signature = getTileSignature(tile);
+        let tileEl = existing;
 
-        const tileEl = document.createElement('div');
-        tileEl.className = 'tile';
-        tileEl.style.setProperty('--tile-color', tile.color || '#7ac4ff');
-
-        const key = `${r},${c}`;
-        if (animatedCells[key] === 'merge-result') {
-          tileEl.classList.add('merged-result');
-        } else if (animatedCells[key] === 'life-burst') {
-          tileEl.classList.add('life-burst', 'entity');
-        } else if (animatedCells[key] === 'merging') {
-          tileEl.classList.add('merging');
-        } else if (animatedCells[key] === 'place') {
-          tileEl.classList.add('placed');
-        } else if (tile.isAnimal || tile.isLandmark) {
-          tileEl.classList.add('entity');
+        if (!tileEl || tileEl.dataset.signature !== signature) {
+          if (tileEl) tileEl.remove();
+          tileEl = createTileElement(tile);
+          cell.appendChild(tileEl);
         }
 
-        tileEl.textContent = tile.emoji;
-
-        if (tile.tier > 0 && !tile.isAnimal && !tile.isLandmark) {
-          const tierBadge = document.createElement('span');
-          tierBadge.className = 'tile-tier';
-          tierBadge.textContent = 'T' + tile.tier;
-          tileEl.appendChild(tierBadge);
-        }
-
-        cell.appendChild(tileEl);
+        applyTileAnimation(tileEl, tile, animatedCells[key]);
       } else {
+        if (existing) existing.remove();
         cell.classList.remove('occupied');
         delete cell.dataset.chain;
       }
@@ -183,12 +268,159 @@ function refreshGridTiles(animatedCells = {}) {
   }
 }
 
+function renderPowerTray() {
+  const inventory = game.getPowerInventory();
+  const defs = [
+    { id: 'swap', btn: '#power-swap', count: '#power-swap-count' },
+    { id: 'wildSeed', btn: '#power-wild', count: '#power-wild-count' },
+    { id: 'clear', btn: '#power-clear', count: '#power-clear-count' },
+  ];
+
+  for (const def of defs) {
+    const btn = $(def.btn);
+    const countEl = $(def.count);
+    if (!btn || !countEl) continue;
+
+    const qty = inventory[def.id] || 0;
+    countEl.textContent = qty;
+    btn.disabled = qty <= 0 || game.state !== 'playing';
+    btn.classList.toggle('active', activePower === def.id);
+  }
+
+  if (activePower && (inventory[activePower] || 0) <= 0) {
+    activePower = null;
+    swapSelection = null;
+  }
+}
+
+function renderPowerHint(msg = '') {
+  const hint = $('#power-hint');
+  if (!hint) return;
+
+  let text = msg;
+  if (!text) {
+    if (!activePower) text = '';
+    else if (activePower === 'swap') {
+      text = swapSelection
+        ? 'Select the second occupied tile.'
+        : 'Swap mode: select the first occupied tile.';
+    } else if (activePower === 'wildSeed') {
+      text = 'Wild mode: tap an empty cell.';
+    } else if (activePower === 'clear') {
+      text = 'Clear mode: tap an occupied tile.';
+    }
+  }
+
+  hint.textContent = text;
+  hint.classList.toggle('active', !!text);
+}
+
+function setActivePower(powerId) {
+  if (game.state !== 'playing') return;
+
+  if (activePower === powerId) {
+    activePower = null;
+    swapSelection = null;
+  } else {
+    activePower = powerId;
+    swapSelection = null;
+  }
+
+  renderPowerTray();
+  renderPowerHint();
+}
+
+async function handlePowerAction(row, col) {
+  if (activePower === 'swap') {
+    if (!swapSelection) {
+      if (!game.grid.get(row, col)) {
+        renderPowerHint('Swap needs an occupied tile first.');
+        return false;
+      }
+      swapSelection = { row, col };
+      pulseClass(cellEls[row]?.[col], 'place-glow', 200);
+      renderPowerHint();
+      return false;
+    }
+
+    if (swapSelection.row === row && swapSelection.col === col) {
+      swapSelection = null;
+      renderPowerHint('Swap selection cancelled.');
+      return false;
+    }
+
+    if (!game.grid.get(row, col)) {
+      renderPowerHint('Second swap tile must be occupied.');
+      return false;
+    }
+
+    const from = swapSelection;
+    swapSelection = null;
+    const success = await game.useSwap(from.row, from.col, row, col);
+    if (!success) {
+      renderPowerHint('Swap failed.');
+      return false;
+    }
+
+    renderPowerHint('Swap complete.');
+    return true;
+  }
+
+  if (activePower === 'wildSeed') {
+    if (game.grid.get(row, col) !== null) {
+      renderPowerHint('Wild Seed needs an empty cell.');
+      return false;
+    }
+    const success = await game.useWildSeed(row, col);
+    if (!success) return false;
+    renderPowerHint('Wild tile planted.');
+    return true;
+  }
+
+  if (activePower === 'clear') {
+    if (!game.grid.get(row, col)) {
+      renderPowerHint('Clear needs an occupied tile.');
+      return false;
+    }
+    const success = game.useClear(row, col);
+    if (!success) return false;
+    renderPowerHint('Tile removed.');
+    return true;
+  }
+
+  return false;
+}
+
+async function refreshAfterPowerAction() {
+  refreshGridTiles();
+  renderScore();
+  renderQueue(true);
+  renderBonusGoals();
+  renderUndoButton();
+  renderHudStatus();
+  renderPowerTray();
+  renderTutorial();
+
+  if (game.state === 'won' || game.state === 'lost') {
+    await sleep(420);
+    renderResult();
+  }
+}
+
 async function handleCellClick(row, col) {
   if (game.state !== 'playing' && game.state !== 'tutorial') return;
   if (game.processing) return;
-  if (game.grid.get(row, col) !== null) return;
 
   game.audio.resume();
+
+  if (game.state === 'playing' && activePower) {
+    const used = await handlePowerAction(row, col);
+    if (!used) return;
+    await refreshAfterPowerAction();
+    return;
+  }
+
+  if (game.grid.get(row, col) !== null) return;
 
   const success = await game.placeTile(row, col);
   if (!success) return;
@@ -199,6 +431,8 @@ async function handleCellClick(row, col) {
   renderBonusGoals();
   renderUndoButton();
   renderHudStatus();
+  renderPowerTray();
+  renderPowerHint();
   renderTutorial();
 
   await sleep(100);
@@ -210,12 +444,15 @@ async function handleCellClick(row, col) {
       if (tile && (tile.isAnimal || tile.isLandmark)) animated[`${r},${c}`] = 'life-burst';
     }
   }
+
   refreshGridTiles(animated);
   renderScore();
   renderQueue();
   renderBonusGoals();
   renderUndoButton();
   renderHudStatus();
+  renderPowerTray();
+  renderPowerHint();
   renderTutorial();
 
   if (game.state === 'won' || game.state === 'lost') {
@@ -326,6 +563,8 @@ function handleUndo() {
     renderBonusGoals();
     renderUndoButton();
     renderHudStatus();
+    renderPowerTray();
+    renderPowerHint();
   }
 }
 
@@ -340,9 +579,13 @@ function renderResult() {
   const isWin = game.state === 'won';
   if (isWin) spawnFireworks();
 
-  $('#result-icon').textContent = isWin ? '\uD83C\uDF0D' : '\uD83D\uDE14';
+  $('#result-icon').textContent = isWin ? '\uD83C\uDF0D' : '\u26A0\uFE0F';
   const titleEl = $('#result-title');
-  titleEl.textContent = isWin ? 'Planet Complete!' : 'Planet Full!';
+  const subtitleEl = $('#result-subtitle');
+  titleEl.textContent = isWin ? 'Planet Complete!' : 'No Moves Left';
+  subtitleEl.textContent = isWin
+    ? 'You reached the target and stabilized this world.'
+    : 'You are out of valid merges. Restart this level or visit the shop for powerups.';
   titleEl.className = 'result-title ' + (isWin ? 'win' : 'loss');
 
   const scoreRows = $('#result-score-rows');
@@ -386,6 +629,8 @@ function renderResult() {
       game.audio.playTap();
       if (nextId) {
         game.startLevel(nextId);
+        activePower = null;
+        swapSelection = null;
         renderGame();
         showScreen('game');
       } else {
@@ -397,9 +642,12 @@ function renderResult() {
     nextBtn.style.display = 'none';
   }
 
+  $('#result-retry-btn').textContent = isWin ? 'Retry \uD83D\uDD04' : 'Restart \uD83D\uDD04';
   $('#result-retry-btn').onclick = () => {
     game.audio.playTap();
     game.startLevel(game.currentLevel);
+    activePower = null;
+    swapSelection = null;
     renderGame();
     showScreen('game');
   };
@@ -475,6 +723,98 @@ function createCollectionItem(emoji, name, count, undiscovered) {
     ${count ? `<span class="item-count">${count}</span>` : ''}
   `;
   return item;
+}
+
+// ── Shop Screen ──────────────────────────────────────────────────────────────
+function openShop(from = 'menu') {
+  shopReturnScreen = from;
+  renderShop();
+  showScreen('shop');
+}
+
+function renderShop() {
+  applyTheme('biome-menu');
+
+  const data = game.getShopData();
+  $('#shop-wallet').textContent = `${game.stardust} Stardust`;
+
+  const powerGrid = $('#shop-powers');
+  powerGrid.innerHTML = '';
+
+  for (const power of data.powers) {
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      <div class="shop-card-icon">${power.icon}</div>
+      <div class="shop-card-title">${power.name}</div>
+      <div class="shop-card-desc">${power.description}</div>
+      <div class="shop-card-meta">Owned: ${power.owned}</div>
+    `;
+
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary shop-buy-btn';
+    btn.textContent = `Buy (${power.cost})`;
+    btn.disabled = game.stardust < power.cost;
+    btn.addEventListener('click', () => {
+      game.audio.playTap();
+      const res = game.buyPower(power.id, 1);
+      if (!res.ok) {
+        spawnSystemPop('Need more Stardust', $('#shop-wallet'), 'reroll');
+        return;
+      }
+      $('#menu-stardust').textContent = `${game.stardust} Stardust`;
+      renderShop();
+      renderPowerTray();
+      spawnSystemPop(`+1 ${power.name}`, $('#shop-wallet'), 'wild');
+    });
+
+    card.appendChild(btn);
+    powerGrid.appendChild(card);
+  }
+
+  const packGrid = $('#shop-stardust');
+  packGrid.innerHTML = '';
+
+  for (const pack of data.stardustPacks) {
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      <div class="shop-card-icon">✨</div>
+      <div class="shop-card-title">${pack.name}</div>
+      <div class="shop-card-desc">+${pack.amount} Stardust</div>
+      <div class="shop-card-meta">${pack.priceLabel}</div>
+    `;
+
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary shop-buy-btn';
+    btn.textContent = `Purchase ${pack.priceLabel}`;
+    btn.addEventListener('click', () => {
+      game.audio.playTap();
+      const ok = window.confirm(`Simulate purchase of ${pack.name} (${pack.priceLabel})?`);
+      if (!ok) return;
+      game.purchaseStardustPack(pack.id);
+      $('#menu-stardust').textContent = `${game.stardust} Stardust`;
+      renderShop();
+      renderPowerTray();
+      spawnSystemPop(`+${pack.amount} Stardust`, $('#shop-wallet'), 'wild');
+    });
+
+    card.appendChild(btn);
+    packGrid.appendChild(card);
+  }
+}
+
+function handleShopBack() {
+  if (shopReturnScreen === 'game') {
+    renderGame();
+    showScreen('game');
+    return;
+  }
+  if (shopReturnScreen === 'collection') {
+    renderCollection();
+    return;
+  }
+  renderMenu();
 }
 
 // ── Visual Effects ───────────────────────────────────────────────────────────
@@ -609,12 +949,36 @@ game.onEvent = (event) => {
     renderHudStatus();
     spawnSystemPop('Queue rerolled', $('#reroll-btn'), 'reroll');
   }
+
+  if (event.type === 'powerUsed') {
+    if (event.powerId === 'swap') {
+      pulseClass(cellEls[event.fromRow]?.[event.fromCol], 'place-glow', 280);
+      pulseClass(cellEls[event.toRow]?.[event.toCol], 'place-glow', 280);
+      if (event.hadMerge) spawnSystemPop('Swap Merge!', $('#power-swap'), 'wild');
+    } else if (event.powerId === 'wildSeed') {
+      refreshGridTiles({ [`${event.row},${event.col}`]: 'place' });
+      spawnMergeParticles(event.row, event.col, '#79d9ff');
+    } else if (event.powerId === 'clear') {
+      spawnMergeParticles(event.row, event.col, '#d4f6b3');
+    }
+  }
+
+  if (event.type === 'shopPurchase') {
+    const wallet = $('#shop-wallet');
+    if (wallet) wallet.textContent = `${game.stardust} Stardust`;
+  }
 };
 
 game.onStateChange = (type) => {
   if (type === 'tutorial') {
     renderTutorial();
     renderHudStatus();
+    renderPowerTray();
+    renderPowerHint();
+  }
+
+  if ((type === 'win' || type === 'loss') && screens.game.classList.contains('active')) {
+    setTimeout(() => renderResult(), 280);
   }
 };
 
@@ -634,6 +998,11 @@ document.addEventListener('DOMContentLoaded', () => {
     game.audio.playTap();
     renderLevels();
   });
+  $('#btn-shop').addEventListener('click', () => {
+    game.audio.init();
+    game.audio.playTap();
+    openShop('menu');
+  });
   $('#btn-collection').addEventListener('click', () => {
     game.audio.init();
     game.audio.playTap();
@@ -649,6 +1018,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game HUD
   $('#pause-btn').addEventListener('click', () => {
     game.audio.playTap();
+    activePower = null;
+    swapSelection = null;
     renderLevels();
   });
   $('#sound-btn').addEventListener('click', () => {
@@ -657,11 +1028,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('#undo-btn').addEventListener('click', () => handleUndo());
   $('#reroll-btn').addEventListener('click', () => handleReroll());
+  $('#shop-quick-btn').addEventListener('click', () => {
+    game.audio.playTap();
+    openShop('game');
+  });
+
+  $$('.power-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      game.audio.playTap();
+      setActivePower(btn.dataset.power);
+    });
+  });
 
   // Result
   $('#result-map-btn').addEventListener('click', () => {
     game.audio.playTap();
     renderLevels();
+  });
+
+  // Shop
+  $('#shop-back').addEventListener('click', () => {
+    game.audio.playTap();
+    handleShopBack();
   });
 
   // Collection
@@ -678,3 +1066,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderMenu();
 });
+
+
+

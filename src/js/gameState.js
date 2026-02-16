@@ -9,11 +9,45 @@ import { AudioManager } from './audio.js';
 function createEmptyCollection() {
   return { tiles: {}, animals: {}, landmarks: {} };
 }
+function createDefaultPowerInventory() {
+  return { swap: 1, wildSeed: 1, clear: 0 };
+}
+
+const POWER_SHOP = {
+  swap: {
+    id: 'swap',
+    name: 'Tile Swap',
+    description: 'Swap any two occupied tiles.',
+    icon: '🔀',
+    cost: 180,
+  },
+  wildSeed: {
+    id: 'wildSeed',
+    name: 'Wild Seed',
+    description: 'Plant a 🌈 on any empty cell.',
+    icon: '🌈',
+    cost: 210,
+  },
+  clear: {
+    id: 'clear',
+    name: 'Clear Tile',
+    description: 'Remove one occupied tile.',
+    icon: '🧹',
+    cost: 150,
+  },
+};
+
+const STARDUST_PACKS = [
+  { id: 'pack_small', name: 'Comet Pouch', amount: 300, priceLabel: '$0.99' },
+  { id: 'pack_medium', name: 'Nebula Crate', amount: 900, priceLabel: '$2.49' },
+  { id: 'pack_large', name: 'Galaxy Vault', amount: 2400, priceLabel: '$4.99' },
+];
 
 export class GameState {
   constructor() {
     this.audio = new AudioManager();
     this.currentLevel = 1;
+    this.powerInventory = createDefaultPowerInventory();
     this.grid = null;
     this.queue = null;
     this.score = 0;
@@ -309,6 +343,158 @@ export class GameState {
     this._notify('reroll');
     return true;
   }
+  getPowerInventory() {
+    return { ...this.powerInventory };
+  }
+
+  getShopData() {
+    return {
+      powers: Object.values(POWER_SHOP).map(p => ({
+        ...p,
+        owned: this.powerInventory[p.id] || 0,
+      })),
+      stardustPacks: STARDUST_PACKS.map(pack => ({ ...pack })),
+    };
+  }
+
+  buyPower(powerId, qty = 1) {
+    const power = POWER_SHOP[powerId];
+    const amount = Math.max(1, Number(qty) || 1);
+    if (!power) return { ok: false, reason: 'unknown_power' };
+
+    const totalCost = power.cost * amount;
+    if (this.stardust < totalCost) {
+      return { ok: false, reason: 'insufficient_stardust', cost: totalCost, current: this.stardust };
+    }
+
+    this.stardust -= totalCost;
+    this.powerInventory[powerId] = (this.powerInventory[powerId] || 0) + amount;
+    this._save();
+
+    this._emitEvent({
+      type: 'shopPurchase',
+      itemType: 'power',
+      powerId,
+      qty: amount,
+      cost: totalCost,
+      stardust: this.stardust,
+    });
+
+    return { ok: true, stardust: this.stardust, owned: this.powerInventory[powerId] };
+  }
+
+  purchaseStardustPack(packId) {
+    const pack = STARDUST_PACKS.find(p => p.id === packId);
+    if (!pack) return { ok: false, reason: 'unknown_pack' };
+
+    this.stardust += pack.amount;
+    this.totalStardust += pack.amount;
+    this._save();
+
+    this._emitEvent({
+      type: 'shopPurchase',
+      itemType: 'stardust',
+      packId,
+      amount: pack.amount,
+      stardust: this.stardust,
+    });
+
+    return { ok: true, stardust: this.stardust, amount: pack.amount };
+  }
+
+  canUsePower(powerId) {
+    return this.state === 'playing' && (this.powerInventory[powerId] || 0) > 0;
+  }
+
+  async useWildSeed(row, col) {
+    if (!this.canUsePower('wildSeed') || this.processing) return false;
+    if (this.grid.get(row, col) !== null) return false;
+
+    this._saveUndoState();
+    this.processing = true;
+    this.turnCount++;
+    this.powerInventory.wildSeed--;
+
+    this.grid.place(row, col, TILES.wild);
+    this.audio.playPlace();
+    this._emitEvent({ type: 'powerUsed', powerId: 'wildSeed', row, col });
+
+    this._updateComboState(false);
+    this._recalculateScore();
+    this._checkEndCondition();
+
+    this.processing = false;
+    this._save();
+    this._notify('turnEnd');
+    return true;
+  }
+
+  useClear(row, col) {
+    if (!this.canUsePower('clear') || this.processing) return false;
+    const tile = this.grid.get(row, col);
+    if (!tile) return false;
+
+    this._saveUndoState();
+    this.processing = true;
+    this.turnCount++;
+    this.powerInventory.clear--;
+
+    this.grid.remove(row, col);
+    this.audio.playTap();
+    this._emitEvent({ type: 'powerUsed', powerId: 'clear', row, col, tile: { ...tile } });
+
+    this._updateComboState(false);
+    this._recalculateScore();
+    this._checkEndCondition();
+
+    this.processing = false;
+    this._save();
+    this._notify('turnEnd');
+    return true;
+  }
+
+  async useSwap(fromRow, fromCol, toRow, toCol) {
+    if (!this.canUsePower('swap') || this.processing) return false;
+    if (fromRow === toRow && fromCol === toCol) return false;
+
+    const fromTile = this.grid.get(fromRow, fromCol);
+    const toTile = this.grid.get(toRow, toCol);
+    if (!fromTile || !toTile) return false;
+
+    this._saveUndoState();
+    this.processing = true;
+    this.turnCount++;
+    this.powerInventory.swap--;
+
+    this.grid.remove(fromRow, fromCol);
+    this.grid.remove(toRow, toCol);
+    this.grid.place(fromRow, fromCol, toTile);
+    this.grid.place(toRow, toCol, fromTile);
+
+    const mergeEvents = [];
+    await this._chainMerge(fromRow, fromCol, mergeEvents, 0);
+    await this._chainMerge(toRow, toCol, mergeEvents, 0);
+
+    this.audio.playTap();
+    this._emitEvent({
+      type: 'powerUsed',
+      powerId: 'swap',
+      fromRow,
+      fromCol,
+      toRow,
+      toCol,
+      hadMerge: mergeEvents.length > 0,
+    });
+
+    this._updateComboState(mergeEvents.length > 0);
+    this._recalculateScore();
+    this._checkEndCondition();
+
+    this.processing = false;
+    this._save();
+    this._notify('turnEnd');
+    return true;
+  }
 
   // ── Score ─────────────────────────────────────────────────────────────────
 
@@ -404,6 +590,7 @@ export class GameState {
       if (!hasMerge) {
         this.state = 'lost';
         this.audio.playLoss();
+        this._onLoss();
         this._notify('loss');
       }
     }
@@ -433,6 +620,13 @@ export class GameState {
     this._save();
   }
 
+
+  _onLoss() {
+    const reward = this.getLossReward();
+    this.stardust += reward.total;
+    this.totalStardust += reward.total;
+    this._save();
+  }
   getWinReward() {
     const baseDust = this.levelDef ? this.levelDef.stardust : 25;
     const bonusGoals = this.getBonusGoalStatus();
@@ -467,6 +661,7 @@ export class GameState {
       landmarksBuilt: [...this.landmarksBuilt],
       tilesCreated: { ...this.tilesCreated },
       animalTypes: new Set(this.animalTypesSpawned),
+      powerInventory: { ...this.powerInventory },
     });
 
     if (this.undoStack.length > 1) this.undoStack.shift();
@@ -495,6 +690,7 @@ export class GameState {
     this.landmarksBuilt = snap.landmarksBuilt;
     this.tilesCreated = snap.tilesCreated;
     this.animalTypesSpawned = snap.animalTypes;
+    this.powerInventory = { ...snap.powerInventory };
     this.undosRemaining--;
 
     this.audio.playUndo();
@@ -710,6 +906,7 @@ export class GameState {
         levelsCompleted: this.levelsCompleted,
         collection: this.collection,
         currentLevel: this.currentLevel,
+        powerInventory: this.powerInventory,
       };
       localStorage.setItem('pocketPlanetSave', JSON.stringify(data));
     } catch (e) {
@@ -728,6 +925,7 @@ export class GameState {
       this.levelsCompleted = data.levelsCompleted || {};
       this.collection = data.collection || createEmptyCollection();
       this.currentLevel = data.currentLevel || 1;
+      this.powerInventory = { ...createDefaultPowerInventory(), ...(data.powerInventory || {}) };
     } catch (e) {
       this.collection = createEmptyCollection();
     }
@@ -739,6 +937,7 @@ export class GameState {
     this.levelsCompleted = {};
     this.collection = createEmptyCollection();
     this.currentLevel = 1;
+    this.powerInventory = createDefaultPowerInventory();
     localStorage.removeItem('pocketPlanetSave');
   }
 
@@ -752,3 +951,7 @@ export class GameState {
     if (this.onStateChange) this.onStateChange(type);
   }
 }
+
+
+
+
