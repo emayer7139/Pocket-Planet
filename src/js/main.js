@@ -211,18 +211,11 @@ function getTileSignature(tile) {
 function getTileMotionClasses(tile) {
   const motion = [];
   const id = tile.id || '';
+  const chain = tile.chain || '';
 
   if (id) motion.push(`tile-motion-${sanitizeClassToken(id)}`);
-  if (id.startsWith('earth_')) motion.push('tile-motion-earth');
-  if (id.startsWith('water_')) motion.push('tile-motion-water');
-  if (id.startsWith('plant_')) motion.push('tile-motion-plant');
-  if (id.startsWith('sand_')) motion.push('tile-motion-sand');
-  if (id.startsWith('snow_')) motion.push('tile-motion-snow');
+  if (chain) motion.push(`tile-motion-chain-${sanitizeClassToken(chain)}`);
   if (id === 'wild') motion.push('tile-motion-rainbow');
-
-  if (id === 'earth_2' || id === 'earth_3' || id === 'earth_4' || id === 'earth_5') {
-    motion.push('tile-motion-snow');
-  }
 
   if (tile.isAnimal) motion.push('tile-motion-animal');
   if (tile.isLandmark) motion.push('tile-motion-landmark');
@@ -725,15 +718,22 @@ function renderCollectionTab(tab) {
 
   if (tab === 'nature') {
     const allTiles = Object.values(TILES).filter(t => t.id !== 'wild');
-    const discovered = Object.keys(game.collection.tiles).length;
+    const discovered = allTiles.filter(tile => !!game.collection.tiles[tile.id]).length;
     $('#collection-progress').textContent = `${discovered} / ${allTiles.length} discovered`;
 
     const groups = [
-      { chain: 'earth', label: 'Earth' },
-      { chain: 'water', label: 'Water' },
-      { chain: 'plant', label: 'Plant' },
-      { chain: 'sand', label: 'Sand' },
-      { chain: 'snow', label: 'Snow' },
+      { chain: 'meadow', label: 'Grassland - Meadow' },
+      { chain: 'brook', label: 'Grassland - Brook' },
+      { chain: 'bloom', label: 'Grassland - Bloom' },
+      { chain: 'dune', label: 'Desert - Dune' },
+      { chain: 'relic', label: 'Desert - Relic' },
+      { chain: 'mirage', label: 'Desert - Mirage' },
+      { chain: 'frost', label: 'Tundra - Frost' },
+      { chain: 'aurora', label: 'Tundra - Aurora' },
+      { chain: 'crystal', label: 'Tundra - Crystal' },
+      { chain: 'magma', label: 'Volcanic - Magma' },
+      { chain: 'ash', label: 'Volcanic - Ash' },
+      { chain: 'obsidian', label: 'Volcanic - Obsidian' },
     ];
 
     for (const group of groups) {
@@ -760,7 +760,7 @@ function renderCollectionTab(tab) {
     }
   } else if (tab === 'animals') {
     const allAnimals = Object.values(ANIMALS);
-    const discovered = Object.keys(game.collection.animals).length;
+    const discovered = allAnimals.filter(animal => !!game.collection.animals[animal.id]).length;
     $('#collection-progress').textContent = `${discovered} / ${allAnimals.length} discovered`;
 
     for (const animal of allAnimals) {
@@ -775,7 +775,7 @@ function renderCollectionTab(tab) {
     }
   } else if (tab === 'landmarks') {
     const allLandmarks = Object.values(LANDMARKS);
-    const discovered = Object.keys(game.collection.landmarks).length;
+    const discovered = allLandmarks.filter(lm => !!game.collection.landmarks[lm.id]).length;
     $('#collection-progress').textContent = `${discovered} / ${allLandmarks.length} discovered`;
 
     for (const lm of allLandmarks) {

@@ -129,7 +129,7 @@ export class GameState {
       this.state = 'tutorial';
       this.tutorialStep = 0;
       this.wildCharge = 0;
-      this.queue.setQueue(['earth_1', 'earth_1', 'earth_1']);
+      this.queue.setQueue(['meadow_1', 'meadow_1', 'meadow_1']);
     } else {
       this.tutorialStep = -1;
     }
@@ -703,9 +703,9 @@ export class GameState {
 
   getTutorialMessage() {
     const messages = [
-      { text: 'A tiny world is born. Tap anywhere to place your rock.', highlight: 'all' },
-      { text: 'Place two more rocks near each other.', highlight: 'adjacent' },
-      { text: 'Three rocks became a hill! Merging is the heart of your planet.', highlight: null },
+      { text: 'A tiny world is born. Tap anywhere to place your sprout.', highlight: 'all' },
+      { text: 'Place two more sprouts near each other.', highlight: 'adjacent' },
+      { text: 'Three sprouts became a meadow! Merging is the heart of your planet.', highlight: null },
       { text: 'Different elements shape your world. Try placing them!', highlight: 'all' },
       { text: 'A new friend! Merging higher tiles brings life to your planet.', highlight: null },
       { text: 'Build combo streaks and fill Wild Charge to unlock rerolls.', highlight: null },
@@ -719,7 +719,7 @@ export class GameState {
   _advanceTutorial(mergeEvents) {
     if (this.tutorialStep === 0 && this.turnCount >= 1) {
       this.tutorialStep = 1;
-      this.queue.setQueue(['earth_1', 'earth_1', 'earth_1']);
+      this.queue.setQueue(['meadow_1', 'meadow_1', 'meadow_1']);
       this._notify('tutorial');
     } else if (this.tutorialStep === 1 && mergeEvents.length > 0) {
       this.tutorialStep = 2;

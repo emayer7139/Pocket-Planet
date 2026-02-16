@@ -1599,6 +1599,121 @@ body.biome-volcanic #ambient-scene::after {
 .tile-motion-landmark_northern_lights .tile-glyph {
   animation: northernLightsWave 2.6s ease-in-out infinite;
 }
+
+/* --- Biome-Specific Piece Art (No Cross-Biome Repeats) --- */
+.tile-chain-meadow .tile-glyph,
+.tile-chain-brook .tile-glyph,
+.tile-chain-bloom .tile-glyph,
+.tile-chain-dune .tile-glyph,
+.tile-chain-relic .tile-glyph,
+.tile-chain-mirage .tile-glyph,
+.tile-chain-frost .tile-glyph,
+.tile-chain-aurora .tile-glyph,
+.tile-chain-crystal .tile-glyph,
+.tile-chain-magma .tile-glyph,
+.tile-chain-ash .tile-glyph,
+.tile-chain-obsidian .tile-glyph {
+  opacity: 1;
+}
+
+.tile-chain-meadow .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(32, 92, 31, 0.42));
+}
+
+.tile-chain-brook .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(22, 86, 148, 0.45));
+}
+
+.tile-chain-bloom .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(130, 42, 96, 0.45));
+}
+
+.tile-chain-dune .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(121, 76, 31, 0.42));
+}
+
+.tile-chain-relic .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(98, 64, 45, 0.42));
+}
+
+.tile-chain-mirage .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(147, 106, 43, 0.45));
+}
+
+.tile-chain-frost .tile-glyph,
+.tile-chain-aurora .tile-glyph,
+.tile-chain-crystal .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(37, 92, 136, 0.46));
+}
+
+.tile-chain-magma .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(158, 53, 26, 0.48));
+}
+
+.tile-chain-ash .tile-glyph,
+.tile-chain-obsidian .tile-glyph {
+  filter: drop-shadow(0 2px 4px rgba(56, 51, 64, 0.48));
+}
+
+.tile-id-meadow_1 .tile-glyph { animation: meadowWind 1.5s ease-in-out infinite; }
+.tile-id-meadow_2 .tile-glyph { animation: meadowWind 1.8s ease-in-out infinite; }
+.tile-id-meadow_3 .tile-glyph { animation: meadowWind 2.1s ease-in-out infinite; }
+.tile-id-meadow_4 .tile-glyph { animation: meadowWind 2.4s ease-in-out infinite; }
+
+.tile-id-brook_1 .tile-glyph { animation: brookCurrent 1.5s ease-in-out infinite; }
+.tile-id-brook_2 .tile-glyph { animation: brookCurrent 1.8s ease-in-out infinite; }
+.tile-id-brook_3 .tile-glyph { animation: brookCurrent 2.1s ease-in-out infinite; }
+.tile-id-brook_4 .tile-glyph { animation: brookCurrent 2.4s ease-in-out infinite; }
+
+.tile-id-bloom_1 .tile-glyph { animation: bloomPulse 1.5s ease-in-out infinite; }
+.tile-id-bloom_2 .tile-glyph { animation: bloomPulse 1.9s ease-in-out infinite; }
+.tile-id-bloom_3 .tile-glyph { animation: bloomPulse 2.2s ease-in-out infinite; }
+.tile-id-bloom_4 .tile-glyph { animation: bloomPulse 2.6s ease-in-out infinite; }
+
+.tile-id-dune_1 .tile-glyph { animation: duneDrift 1.7s ease-in-out infinite; }
+.tile-id-dune_2 .tile-glyph { animation: duneDrift 2s ease-in-out infinite; }
+.tile-id-dune_3 .tile-glyph { animation: duneDrift 2.3s ease-in-out infinite; }
+.tile-id-dune_4 .tile-glyph { animation: duneDrift 2.6s ease-in-out infinite; }
+
+.tile-id-relic_1 .tile-glyph { animation: relicHum 1.9s ease-in-out infinite; }
+.tile-id-relic_2 .tile-glyph { animation: relicHum 2.2s ease-in-out infinite; }
+.tile-id-relic_3 .tile-glyph { animation: relicHum 2.5s ease-in-out infinite; }
+.tile-id-relic_4 .tile-glyph { animation: relicHum 2.8s ease-in-out infinite; }
+
+.tile-id-mirage_1 .tile-glyph { animation: mirageShimmer 1.6s linear infinite; }
+.tile-id-mirage_2 .tile-glyph { animation: mirageShimmer 1.9s linear infinite; }
+.tile-id-mirage_3 .tile-glyph { animation: mirageShimmer 2.2s linear infinite; }
+.tile-id-mirage_4 .tile-glyph { animation: mirageShimmer 2.5s linear infinite; }
+
+.tile-id-frost_1 .tile-glyph { animation: frostTwirl 1.8s linear infinite; }
+.tile-id-frost_2 .tile-glyph { animation: frostTwirl 2.1s linear infinite; }
+.tile-id-frost_3 .tile-glyph { animation: frostTwirl 2.4s linear infinite; }
+.tile-id-frost_4 .tile-glyph { animation: frostTwirl 2.7s linear infinite; }
+
+.tile-id-aurora_1 .tile-glyph { animation: auroraRibbon 1.8s ease-in-out infinite; }
+.tile-id-aurora_2 .tile-glyph { animation: auroraRibbon 2.1s ease-in-out infinite; }
+.tile-id-aurora_3 .tile-glyph { animation: auroraRibbon 2.4s ease-in-out infinite; }
+.tile-id-aurora_4 .tile-glyph { animation: auroraRibbon 2.7s ease-in-out infinite; }
+
+.tile-id-crystal_1 .tile-glyph { animation: crystalGlint 1.6s ease-in-out infinite; }
+.tile-id-crystal_2 .tile-glyph { animation: crystalGlint 1.9s ease-in-out infinite; }
+.tile-id-crystal_3 .tile-glyph { animation: crystalGlint 2.2s ease-in-out infinite; }
+.tile-id-crystal_4 .tile-glyph { animation: crystalGlint 2.5s ease-in-out infinite; }
+
+.tile-id-magma_1 .tile-glyph { animation: magmaThrob 1.5s ease-in-out infinite; }
+.tile-id-magma_2 .tile-glyph { animation: magmaThrob 1.8s ease-in-out infinite; }
+.tile-id-magma_3 .tile-glyph { animation: magmaThrob 2.1s ease-in-out infinite; }
+.tile-id-magma_4 .tile-glyph { animation: magmaThrob 2.4s ease-in-out infinite; }
+
+.tile-id-ash_1 .tile-glyph { animation: ashDrift 1.7s ease-in-out infinite; }
+.tile-id-ash_2 .tile-glyph { animation: ashDrift 2s ease-in-out infinite; }
+.tile-id-ash_3 .tile-glyph { animation: ashDrift 2.3s ease-in-out infinite; }
+.tile-id-ash_4 .tile-glyph { animation: ashDrift 2.6s ease-in-out infinite; }
+
+.tile-id-obsidian_1 .tile-glyph { animation: obsidianGleam 1.9s ease-in-out infinite; }
+.tile-id-obsidian_2 .tile-glyph { animation: obsidianGleam 2.2s ease-in-out infinite; }
+.tile-id-obsidian_3 .tile-glyph { animation: obsidianGleam 2.5s ease-in-out infinite; }
+.tile-id-obsidian_4 .tile-glyph { animation: obsidianGleam 2.8s ease-in-out infinite; }
 /* --- Queue --- */
 .queue-area {
   position: relative;
@@ -3248,6 +3363,142 @@ body.biome-volcanic #ambient-scene::after {
   50% {
     transform: translateX(1px) rotate(4deg);
     filter: hue-rotate(25deg);
+  }
+}
+
+@keyframes meadowWind {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-2px);
+  }
+}
+
+@keyframes brookCurrent {
+  0%,
+  100% {
+    transform: translateX(-2px) scaleX(0.96);
+  }
+  50% {
+    transform: translateX(2px) scaleX(1.06);
+  }
+}
+
+@keyframes bloomPulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+@keyframes duneDrift {
+  0%,
+  100% {
+    transform: skewX(-4deg) translateX(-1px);
+  }
+  50% {
+    transform: skewX(5deg) translateX(1px);
+  }
+}
+
+@keyframes relicHum {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 2px 4px rgba(98, 64, 45, 0.42));
+  }
+  50% {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0 6px rgba(248, 214, 155, 0.65));
+  }
+}
+
+@keyframes mirageShimmer {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.04);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes frostTwirl {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(14deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes auroraRibbon {
+  0%,
+  100% {
+    transform: translateX(-1px) rotate(-3deg);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translateX(1px) rotate(3deg);
+    filter: hue-rotate(24deg);
+  }
+}
+
+@keyframes crystalGlint {
+  0%,
+  100% {
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+  50% {
+    transform: translateY(-2px);
+    filter: brightness(1.24);
+  }
+}
+
+@keyframes magmaThrob {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+    filter: saturate(1.28);
+  }
+}
+
+@keyframes ashDrift {
+  0%,
+  100% {
+    transform: translateX(-1px) translateY(0);
+    opacity: 0.88;
+  }
+  50% {
+    transform: translateX(1px) translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@keyframes obsidianGleam {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.18);
   }
 }
 /* --- Responsive --- */
