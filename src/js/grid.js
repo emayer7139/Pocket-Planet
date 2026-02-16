@@ -61,27 +61,27 @@ export class Grid {
     const startTile = this.cells[row][col];
     if (!startTile) return [];
 
-    const targetId = startTile.id;
-    if (targetId === 'wild') return []; // wild tiles don't initiate merges on their own
+    const evaluateGroupForTarget = (targetId) => {
+      if (!targetId || targetId === 'wild') return [];
 
-    const visited = new Set();
-    const group = [];
-    const queue = [[row, col]];
-    visited.add(`${row},${col}`);
+      const visited = new Set();
+      const group = [];
+      const queue = [[row, col]];
+      visited.add(`${row},${col}`);
 
-    while (queue.length > 0) {
-      const [r, c] = queue.shift();
-      const tile = this.cells[r][c];
-      if (!tile) continue;
+      while (queue.length > 0) {
+        const [r, c] = queue.shift();
+        const tile = this.cells[r][c];
+        if (!tile) continue;
 
-      // Match: same tile id, or wild tile
-      if (tile.id === targetId || tile.id === 'wild') {
-        group.push({ row: r, col: c, tile });
-        // Explore neighbors
-        for (const { row: nr, col: nc } of this.getAdjacent(r, c)) {
-          const key = `${nr},${nc}`;
-          if (!visited.has(key)) {
+        // Match: same target id, or wild tile.
+        if (tile.id === targetId || tile.id === 'wild') {
+          group.push({ row: r, col: c, tile });
+          for (const { row: nr, col: nc } of this.getAdjacent(r, c)) {
+            const key = `${nr},${nc}`;
+            if (visited.has(key)) continue;
             visited.add(key);
+
             const neighborTile = this.cells[nr][nc];
             if (neighborTile && (neighborTile.id === targetId || neighborTile.id === 'wild')) {
               queue.push([nr, nc]);
@@ -89,9 +89,43 @@ export class Grid {
           }
         }
       }
+
+      return group;
+    };
+
+    if (startTile.id !== 'wild') {
+      return evaluateGroupForTarget(startTile.id);
     }
 
-    return group;
+    // Wild can initiate merges; pick the best target chain touching connected wild tiles.
+    const candidates = new Set();
+    const wildVisited = new Set([`${row},${col}`]);
+    const wildQueue = [[row, col]];
+    while (wildQueue.length > 0) {
+      const [wr, wc] = wildQueue.shift();
+      for (const { row: nr, col: nc, tile } of this.getAdjacent(wr, wc)) {
+        if (!tile) continue;
+        const key = `${nr},${nc}`;
+        if (tile.id === 'wild') {
+          if (!wildVisited.has(key)) {
+            wildVisited.add(key);
+            wildQueue.push([nr, nc]);
+          }
+          continue;
+        }
+
+        if (tile.isAnimal || tile.isLandmark) continue;
+        candidates.add(tile.id);
+      }
+    }
+
+    let best = [];
+    for (const targetId of candidates) {
+      const group = evaluateGroupForTarget(targetId);
+      if (group.length > best.length) best = group;
+    }
+
+    return best;
   }
 
   // Check if the board is completely full.

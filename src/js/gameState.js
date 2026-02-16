@@ -192,7 +192,6 @@ export class GameState {
   async _processMerges(row, col) {
     const tile = this.grid.get(row, col);
     if (!tile || tile.isAnimal || tile.isLandmark) return [];
-    if (tile.id === 'wild') return [];
 
     const allEvents = [];
     await this._chainMerge(row, col, allEvents, 0);
@@ -419,7 +418,8 @@ export class GameState {
     this.audio.playPlace();
     this._emitEvent({ type: 'powerUsed', powerId: 'wildSeed', row, col });
 
-    this._updateComboState(false);
+    const mergeEvents = await this._processMerges(row, col);
+    this._updateComboState(mergeEvents.length > 0);
     this._recalculateScore();
     this._checkEndCondition();
 
@@ -576,7 +576,7 @@ export class GameState {
       for (let r = 0; r < this.grid.size; r++) {
         for (let c = 0; c < this.grid.size; c++) {
           const tile = this.grid.get(r, c);
-          if (tile && !tile.isAnimal && !tile.isLandmark && tile.id !== 'wild') {
+          if (tile && !tile.isAnimal && !tile.isLandmark) {
             const group = this.grid.findMergeGroup(r, c);
             if (group.length >= 3) {
               hasMerge = true;

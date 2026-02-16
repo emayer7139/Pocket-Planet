@@ -1255,6 +1255,15 @@ body.biome-volcanic #ambient-scene::after {
   animation: pondCirculate 1.8s ease-in-out infinite;
 }
 
+.tile-motion-water_2 .tile-fx {
+  display: none;
+}
+
+.tile-motion-water_2 .tile-glyph {
+  opacity: 1;
+  animation: pondRoll 1.8s ease-in-out infinite;
+}
+
 .tile-motion-water_3 .tile-fx::before {
   inset: 20% 6% 20%;
   border-radius: 42% 58% 50% 50% / 56% 44% 56% 44%;

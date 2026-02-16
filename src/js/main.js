@@ -749,7 +749,12 @@ function renderCollectionTab(tab) {
 
       for (const tile of chainTiles) {
         const d = game.collection.tiles[tile.id];
-        const item = createCollectionItem(tile.emoji, tile.name, d ? `\u00D7${d.count}` : '', !d);
+        const item = createCollectionItem(
+          tile.emoji,
+          tile.name,
+          d ? `\u00D7${d.count}` : '',
+          !d && !devUnlockAllLevels
+        );
         grid.appendChild(item);
       }
     }
@@ -760,7 +765,12 @@ function renderCollectionTab(tab) {
 
     for (const animal of allAnimals) {
       const d = game.collection.animals[animal.id];
-      const item = createCollectionItem(animal.emoji, animal.name, d ? `\u00D7${d.count}` : '', !d);
+      const item = createCollectionItem(
+        animal.emoji,
+        animal.name,
+        d ? `\u00D7${d.count}` : '',
+        !d && !devUnlockAllLevels
+      );
       grid.appendChild(item);
     }
   } else if (tab === 'landmarks') {
@@ -770,7 +780,12 @@ function renderCollectionTab(tab) {
 
     for (const lm of allLandmarks) {
       const d = game.collection.landmarks[lm.id];
-      const item = createCollectionItem(lm.emoji, lm.name, d ? `\u00D7${d.count}` : '', !d);
+      const item = createCollectionItem(
+        lm.emoji,
+        lm.name,
+        d ? `\u00D7${d.count}` : '',
+        !d && !devUnlockAllLevels
+      );
       grid.appendChild(item);
     }
   }
@@ -1056,14 +1071,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (event) => {
     const isDevToggle = event.code === 'Backquote' || event.key === '~' || event.key === '`';
     if (!isDevToggle || event.repeat) return;
-    if (!screens.levels.classList.contains('active')) return;
+    const isLevelsActive = screens.levels.classList.contains('active');
+    const isCollectionActive = screens.collection.classList.contains('active');
+    if (!isLevelsActive && !isCollectionActive) return;
 
     event.preventDefault();
     devUnlockAllLevels = !devUnlockAllLevels;
-    renderLevels();
+
+    if (isLevelsActive) renderLevels();
+    if (isCollectionActive) renderCollectionTab(collectionTab);
+
+    const anchor = isCollectionActive ? $('#collection-back') : $('#levels-back');
     spawnSystemPop(
-      devUnlockAllLevels ? 'Dev Mode: all levels unlocked' : 'Dev Mode: off',
-      $('#levels-back'),
+      devUnlockAllLevels ? 'Dev Mode: levels + collection unlocked' : 'Dev Mode: off',
+      anchor,
       devUnlockAllLevels ? 'wild' : 'reroll'
     );
   });
