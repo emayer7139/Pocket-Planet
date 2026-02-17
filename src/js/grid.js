@@ -55,8 +55,8 @@ export class Grid {
     return neighbors;
   }
 
-  // BFS: find all connected tiles matching the given tileId starting from (row, col).
-  // For wild tiles, they match any adjacent tile's id.
+  // BFS: find exactly 3 connected tiles matching the given tileId starting from (row, col).
+  // Wild tiles act as wildcards but are only consumed when needed to reach 3.
   findMergeGroup(row, col) {
     const startTile = this.cells[row][col];
     if (!startTile) return [];
@@ -66,25 +66,35 @@ export class Grid {
 
       const visited = new Set();
       const group = [];
-      const queue = [[row, col]];
+      // Two queues: non-wild tiles are explored first so wilds are only
+      // consumed when needed to reach a group of 3.
+      const primaryQueue = [[row, col]];   // non-wild matches
+      const wildQueue = [];                // wild matches
       visited.add(`${row},${col}`);
 
-      while (queue.length > 0) {
-        const [r, c] = queue.shift();
+      while (group.length < 3 && (primaryQueue.length > 0 || wildQueue.length > 0)) {
+        // Prefer non-wild tiles over wild tiles.
+        const [r, c] = primaryQueue.length > 0 ? primaryQueue.shift() : wildQueue.shift();
         const tile = this.cells[r][c];
         if (!tile) continue;
 
-        // Match: same target id, or wild tile.
         if (tile.id === targetId || tile.id === 'wild') {
           group.push({ row: r, col: c, tile });
+          if (group.length >= 3) break;
+
           for (const { row: nr, col: nc } of this.getAdjacent(r, c)) {
             const key = `${nr},${nc}`;
             if (visited.has(key)) continue;
-            visited.add(key);
 
             const neighborTile = this.cells[nr][nc];
-            if (neighborTile && (neighborTile.id === targetId || neighborTile.id === 'wild')) {
-              queue.push([nr, nc]);
+            if (!neighborTile) continue;
+
+            if (neighborTile.id === targetId) {
+              visited.add(key);
+              primaryQueue.push([nr, nc]);
+            } else if (neighborTile.id === 'wild') {
+              visited.add(key);
+              wildQueue.push([nr, nc]);
             }
           }
         }
@@ -100,16 +110,16 @@ export class Grid {
     // Wild can initiate merges; pick the best target chain touching connected wild tiles.
     const candidates = new Set();
     const wildVisited = new Set([`${row},${col}`]);
-    const wildQueue = [[row, col]];
-    while (wildQueue.length > 0) {
-      const [wr, wc] = wildQueue.shift();
+    const wQueue = [[row, col]];
+    while (wQueue.length > 0) {
+      const [wr, wc] = wQueue.shift();
       for (const { row: nr, col: nc, tile } of this.getAdjacent(wr, wc)) {
         if (!tile) continue;
         const key = `${nr},${nc}`;
         if (tile.id === 'wild') {
           if (!wildVisited.has(key)) {
             wildVisited.add(key);
-            wildQueue.push([nr, nc]);
+            wQueue.push([nr, nc]);
           }
           continue;
         }

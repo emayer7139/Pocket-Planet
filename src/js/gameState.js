@@ -195,7 +195,43 @@ export class GameState {
 
     const allEvents = [];
     await this._chainMerge(row, col, allEvents, 0);
+
+    // Scan the entire board for any remaining valid merge groups.
+    // This catches wild-bridged merges that weren't connected to the placed tile.
+    await this._scanBoardForMerges(allEvents);
+
     return allEvents;
+  }
+
+  async _scanBoardForMerges(allEvents) {
+    const skipped = new Set();
+    let found = true;
+    while (found) {
+      found = false;
+      for (let r = 0; r < this.grid.size; r++) {
+        for (let c = 0; c < this.grid.size; c++) {
+          const tile = this.grid.get(r, c);
+          if (!tile || tile.isAnimal || tile.isLandmark) continue;
+          if (skipped.has(`${r},${c}`)) continue;
+          const group = this.grid.findMergeGroup(r, c);
+          if (group.length < 3) continue;
+
+          // Check if this merge can actually produce a next-tier tile.
+          const baseTile = group.find(g => g.tile.id !== 'wild')?.tile || tile;
+          const nextTileId = `${baseTile.chain}_${baseTile.tier + 1}`;
+          if (!TILES[nextTileId]) {
+            // No valid merge result (e.g. all-wild group or max tier) — skip.
+            for (const g of group) skipped.add(`${g.row},${g.col}`);
+            continue;
+          }
+
+          await this._chainMerge(r, c, allEvents, 0);
+          found = true;
+          break;
+        }
+        if (found) break;
+      }
+    }
   }
 
   async _chainMerge(row, col, allEvents, chainStep) {
@@ -474,6 +510,7 @@ export class GameState {
     const mergeEvents = [];
     await this._chainMerge(fromRow, fromCol, mergeEvents, 0);
     await this._chainMerge(toRow, toCol, mergeEvents, 0);
+    await this._scanBoardForMerges(mergeEvents);
 
     this.audio.playTap();
     this._emitEvent({
